@@ -1,1067 +1,204 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<!doctype html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PromptVault — Your Personal AI Prompt Workspace</title>
-  <meta name="description" content="PromptVault is a modern creative workspace for storing, organizing, testing, and copying AI prompts with custom categories, tags, scratchpad, and cloud sync.">
-  
-  <!-- Modern Typography (Inter & JetBrains Mono) -->
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="theme-color" content="#111827">
+  <title>PromptVault — AI Prompt Workspace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- PromptVault Design System -->
-  <link rel="stylesheet" href="css/variables.css">
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/views.css">
-  <link rel="stylesheet" href="css/responsive.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <div id="toast" class="toast"></div>
 
-  <div id="app-root">
+  <section id="authView" class="auth-view">
+    <div class="auth-shell">
+      <div class="brand-mark">PV</div>
+      <h1>Prompt<span>Vault</span></h1>
+      <p class="auth-subtitle">Your personal AI prompt workspace.</p>
 
-    <!-- ===============================================================
-         AUTHENTICATION CONTAINER (Login & Register Pages)
-         =============================================================== -->
-    <div id="auth-container" class="auth-page">
-      <div class="auth-card">
-        
-        <!-- LOGIN SECTION -->
-        <div id="auth-section-login">
-          <div class="auth-header">
-            <div class="auth-brand">
-              <span>⚡ PromptVault</span>
-              <span class="auth-brand-badge">PRO</span>
-            </div>
-            <p class="auth-subtitle"><em>Your personal AI prompt workspace</em></p>
-          </div>
-
-          <form id="login-form">
-            <div class="form-group">
-              <label class="form-label" for="login-email">Email Address</label>
-              <input type="email" id="login-email" class="form-input" placeholder="name@promptvault.io" required value="alex@promptvault.io">
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="login-password">Password</label>
-              <input type="password" id="login-password" class="form-input" placeholder="••••••••••••" required value="workspace123">
-            </div>
-
-            <div class="auth-links">
-              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="login-remember" checked style="accent-color: var(--accent-primary);">
-                <span>Remember me</span>
-              </label>
-              <a href="#" id="btn-forgot-password">Forgot Password?</a>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
-              <span>Sign In to Workspace</span>
-            </button>
-          </form>
-
-          <div class="auth-divider">OR</div>
-
-          <button type="button" id="btn-google-login" class="btn btn-secondary" style="width: 100%; margin-bottom: 16px;">
-            <svg width="18" height="18" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
-              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-            </svg>
-            <span>Continue with Google</span>
-          </button>
-
-          <div style="text-align: center; font-size: 0.85rem; color: var(--text-secondary);">
-            Don't have an account? 
-            <a href="#" id="btn-to-register" style="font-weight: 600;">Create Account</a>
-          </div>
-
-          <!-- Rapid Multi-User Isolation Tester -->
-          <div class="auth-demo-box">
-            <div class="auth-demo-title">⚡ Instant Demo Sign-In (Test Separate User Data)</div>
-            <div class="auth-demo-btns">
-              <button type="button" id="btn-demo-user-a" class="btn btn-sm btn-secondary" title="Signs in as Alex (User A)">
-                👤 Alex (User A)
-              </button>
-              <button type="button" id="btn-demo-user-b" class="btn btn-sm btn-secondary" title="Signs in as Maya (User B with separate prompts)">
-                👤 Maya (User B)
-              </button>
-            </div>
-          </div>
+      <div id="loginPanel" class="auth-card">
+        <div class="auth-card-head">
+          <h2>Welcome back</h2>
+          <p>Sign in to your prompt library.</p>
         </div>
-
-        <!-- REGISTER SECTION -->
-        <div id="auth-section-register" class="hidden">
-          <div class="auth-header">
-            <div class="auth-brand">
-              <span>⚡ PromptVault</span>
-            </div>
-            <p class="auth-subtitle">Create your personal AI workspace account</p>
+        <form id="loginForm">
+          <label>Email<input id="loginEmail" type="email" required autocomplete="email"></label>
+          <label>Password<input id="loginPassword" type="password" required autocomplete="current-password"></label>
+          <div class="auth-row">
+            <label class="check"><input id="rememberMe" type="checkbox" checked> Remember me</label>
+            <button type="button" id="forgotBtn" class="text-btn">Forgot password?</button>
           </div>
-
-          <form id="register-form">
-            <div class="form-group">
-              <label class="form-label" for="reg-name">Full Name</label>
-              <input type="text" id="reg-name" class="form-input" placeholder="e.g. Alex Vance" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="reg-email">Email Address</label>
-              <input type="email" id="reg-email" class="form-input" placeholder="name@promptvault.io" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="reg-password">Password</label>
-              <input type="password" id="reg-password" class="form-input" placeholder="Create secure password" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="reg-confirm-password">Confirm Password</label>
-              <input type="password" id="reg-confirm-password" class="form-input" placeholder="Re-enter password" required>
-            </div>
-
-            <div class="form-group">
-              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8125rem;">
-                <input type="checkbox" id="reg-terms" required style="accent-color: var(--accent-primary);">
-                <span>I agree to the Terms & Privacy Policy</span>
-              </label>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 10px;">
-              <span>Create Account</span>
-            </button>
-          </form>
-
-          <div style="text-align: center; margin-top: 20px; font-size: 0.85rem; color: var(--text-secondary);">
-            Already have an account? 
-            <a href="#" id="btn-to-login" style="font-weight: 600;">Sign In</a>
-          </div>
-        </div>
-
+          <button class="primary-btn full" type="submit">Sign in</button>
+        </form>
+        <div class="auth-divider"><span>OR</span></div>
+        <p class="switch-auth">Don't have an account? <button id="showRegister" class="text-btn">Create account</button></p>
       </div>
+
+      <div id="registerPanel" class="auth-card hidden">
+        <div class="auth-card-head">
+          <h2>Create your account</h2>
+          <p>Your prompts stay separated and private.</p>
+        </div>
+        <form id="registerForm">
+          <label>Name<input id="registerName" type="text" required autocomplete="name"></label>
+          <label>Email<input id="registerEmail" type="email" required autocomplete="email"></label>
+          <label>Password<input id="registerPassword" type="password" minlength="6" required autocomplete="new-password"></label>
+          <label>Confirm password<input id="registerConfirm" type="password" minlength="6" required autocomplete="new-password"></label>
+          <label class="check terms"><input id="terms" type="checkbox" required> I agree to the Terms & Privacy Policy</label>
+          <button class="primary-btn full" type="submit">Create account</button>
+        </form>
+        <p class="switch-auth">Already have an account? <button id="showLogin" class="text-btn">Sign in</button></p>
+      </div>
+      <small class="auth-foot">Firebase-powered authentication • Personal workspace</small>
     </div>
+  </section>
 
+  <section id="appView" class="app-view hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark small">PV</div>
+        <div><strong>PromptVault</strong><span>AI Workspace</span></div>
+        <button id="closeSidebar" class="icon-btn mobile-only">×</button>
+      </div>
 
-    <!-- ===============================================================
-         MAIN APPLICATION SHELL (Protected Workspace)
-         =============================================================== -->
-    <div id="app-shell" class="hidden">
-      
-      <!-- TOP APPLICATION HEADER -->
-      <header class="app-header">
-        <div style="display: flex; align-items: center; gap: 14px;">
-          <!-- Mobile Hamburger Toggle -->
-          <button id="btn-mobile-menu-toggle" class="btn btn-icon" style="display: none;" title="Toggle Menu">
-            ☰
-          </button>
+      <nav class="main-nav">
+        <button class="nav-item active" data-view="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="nav-item" data-view="prompts">▦ <span>All Prompts</span></button>
+        <button class="nav-item" data-view="favorites">★ <span>Favorites</span></button>
+        <button class="nav-item" data-view="recent">◷ <span>Recently Used</span></button>
+        <button class="nav-item" data-view="notes">▤ <span>Notepad</span></button>
+      </nav>
 
-          <div class="header-brand">
-            <div class="header-brand-icon">⚡</div>
-            <span>PromptVault</span>
-            <span class="auth-brand-badge" style="font-size: 0.65rem;">PRO</span>
-          </div>
+      <div class="side-section">
+        <div class="side-section-title"><span>My Categories</span><button id="addCategoryBtn" class="mini-add">+</button></div>
+        <div id="categoryNav"></div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" id="settingsBtn">⚙ <span>Settings</span></button>
+        <button class="nav-item" id="logoutBtn">↪ <span>Logout</span></button>
+      </div>
+    </aside>
+
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button id="menuBtn" class="icon-btn mobile-only">☰</button>
+        <div class="search-wrap">
+          <span>⌕</span><input id="globalSearch" placeholder="Search prompts, tags, notes..." autocomplete="off">
+          <kbd>Ctrl K</kbd>
         </div>
-
-        <!-- Center Global Search Input (Ctrl + K) -->
-        <div class="header-center">
-          <div class="search-box-container">
-            <div class="search-box-icon">🔍</div>
-            <input type="text" class="search-input global-search-input" placeholder="Search prompts, categories, tags, notes...">
-            <div class="search-shortcut-badge">
-              <kbd>Ctrl</kbd>
-              <kbd>K</kbd>
-            </div>
-          </div>
+        <div class="top-actions">
+          <button id="themeBtn" class="icon-btn" title="Toggle dark mode">☾</button>
+          <button id="newNoteBtn" class="secondary-btn hide-mobile">+ Note</button>
+          <button id="newPromptBtn" class="primary-btn">+ New Prompt</button>
+          <button id="profileBtn" class="profile-btn"><span id="avatar">U</span><span id="profileName" class="hide-mobile">User</span>⌄</button>
         </div>
-
-        <!-- Header Actions: View Toggle, Dark Mode, New Prompt, Profile Menu -->
-        <div class="header-actions">
-          <!-- View Switcher -->
-          <div class="view-mode-toggle">
-            <button id="btn-view-grid" class="view-mode-btn active" title="Grid View">🔲</button>
-            <button id="btn-view-list" class="view-mode-btn" title="List View">📋</button>
-          </div>
-
-          <!-- Theme Switcher -->
-          <button class="btn btn-icon btn-theme-toggle" title="Toggle Light/Dark Theme">
-            <span class="theme-toggle-icon">☀️</span>
-          </button>
-
-          <!-- New Prompt Button -->
-          <button class="btn btn-primary btn-open-new-prompt">
-            <span>＋</span>
-            <span class="hide-mobile">New Prompt</span>
-          </button>
-
-          <!-- User Profile Dropdown -->
-          <div class="dropdown" id="user-profile-dropdown">
-            <div class="user-profile-trigger" id="user-profile-menu-btn">
-              <div class="user-avatar" id="user-avatar-badge">A</div>
-              <span class="user-name-label" id="user-name-display">Alex Vance</span>
-              <span style="font-size: 0.7rem; color: var(--text-muted);">▼</span>
-            </div>
-
-            <div class="dropdown-menu">
-              <div style="padding: 8px 12px; border-bottom: 1px solid var(--border-color); margin-bottom: 4px;">
-                <div style="font-weight: 700; font-size: 0.85rem;" id="user-email-display">alex@promptvault.io</div>
-                <div style="font-size: 0.72rem; color: var(--color-success);">🟢 Firebase Authenticated</div>
-              </div>
-              <div class="dropdown-item" id="menu-item-my-profile">👤 My Profile</div>
-              <div class="dropdown-item" id="menu-item-settings">⚙ Settings & Backup</div>
-              <div class="dropdown-item" id="menu-item-shortcuts">⌨ Keyboard Shortcuts</div>
-              <div class="dropdown-divider"></div>
-              <div class="dropdown-item danger" id="btn-logout-trigger">🚪 Logout</div>
-            </div>
-          </div>
+        <div id="profileMenu" class="profile-menu hidden">
+          <div class="profile-summary"><strong id="menuName">User</strong><small id="menuEmail"></small></div>
+          <button id="menuSettings">⚙ Settings</button>
+          <button id="menuLogout">↪ Logout</button>
         </div>
       </header>
 
-      <!-- MAIN APP CONTAINER (Sidebar + Workspace Content) -->
-      <div class="app-container">
-        
-        <!-- SIDEBAR BACKDROP FOR MOBILE -->
-        <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
-
-        <!-- LEFT SIDEBAR -->
-        <aside class="sidebar" id="sidebar">
-          <div class="sidebar-body">
-            
-            <!-- MAIN NAVIGATION -->
-            <div>
-              <div class="nav-group-title">WORKSPACE</div>
-              <ul class="nav-list">
-                <li class="nav-item active" data-view-target="dashboard">
-                  <div class="nav-item-left">
-                    <span class="nav-item-icon">🏠</span>
-                    <span>Dashboard</span>
-                  </div>
-                </li>
-                <li class="nav-item" data-view-target="prompts">
-                  <div class="nav-item-left">
-                    <span class="nav-item-icon">📝</span>
-                    <span>All Prompts</span>
-                  </div>
-                  <span class="nav-item-badge" id="nav-count-prompts">0</span>
-                </li>
-                <li class="nav-item" data-view-target="favorites">
-                  <div class="nav-item-left">
-                    <span class="nav-item-icon">⭐</span>
-                    <span>Favorites</span>
-                  </div>
-                  <span class="nav-item-badge" id="nav-count-favs">0</span>
-                </li>
-                <li class="nav-item" data-view-target="recent">
-                  <div class="nav-item-left">
-                    <span class="nav-item-icon">🕘</span>
-                    <span>Recently Used</span>
-                  </div>
-                </li>
-                <li class="nav-item" data-view-target="notepad">
-                  <div class="nav-item-left">
-                    <span class="nav-item-icon">📋</span>
-                    <span>Notepad / Notes</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-
-            <!-- MY CATEGORIES SECTION -->
-            <div>
-              <div class="nav-group-title">
-                <span>MY CATEGORIES</span>
-                <button class="btn btn-icon btn-sm btn-add-category" title="Add New Category" style="width: 20px; height: 20px;">
-                  ＋
-                </button>
-              </div>
-              <ul class="nav-list" id="sidebar-categories-list">
-                <!-- Dynamically populated categories with color tags & drag-and-drop targets -->
-              </ul>
-            </div>
-
-            <!-- QUICK TOOLS -->
-            <div>
-              <div class="nav-group-title">SMART TOOLS</div>
-              <ul class="nav-list">
-                <li class="nav-item btn-open-template-builder">
-                  <div class="nav-item-left">
-                    <span class="nav-item-icon">⚡</span>
-                    <span>Template Builder</span>
-                  </div>
-                </li>
-                <li class="nav-item" onclick="PromptVault.UI.openModal('modal-settings')">
-                  <div class="nav-item-left">
-                    <span class="nav-item-icon">☁️</span>
-                    <span>Cloud Sync & Backup</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-
+      <div class="content">
+        <div id="dashboardView" class="page-view">
+          <div class="page-heading">
+            <div><span class="eyebrow">WORKSPACE</span><h2>Good to see you, <span id="helloName">there</span>.</h2><p>Organize your best prompts and ideas in one place.</p></div>
+            <button class="secondary-btn" id="quickImportBtn">Import JSON</button>
           </div>
-
-          <!-- SIDEBAR FOOTER -->
-          <div class="sidebar-footer">
-            <div class="sync-status">
-              <span class="sync-indicator-dot"></span>
-              <span id="cloud-sync-status-text">Cloud Storage Active</span>
-            </div>
-            <button class="btn btn-icon btn-sm" onclick="PromptVault.UI.openModal('modal-settings')" title="Settings">
-              ⚙
-            </button>
+          <div class="stats-grid">
+            <div class="stat-card"><span>Prompts</span><strong id="statPrompts">0</strong><small>Total saved prompts</small></div>
+            <div class="stat-card"><span>Categories</span><strong id="statCategories">0</strong><small>Your custom categories</small></div>
+            <div class="stat-card"><span>Favorites</span><strong id="statFavorites">0</strong><small>Starred prompts</small></div>
+            <div class="stat-card"><span>Copied</span><strong id="statCopied">0</strong><small>Total copy actions</small></div>
           </div>
-        </aside>
-
-        <!-- MAIN WORKSPACE CONTENT AREA -->
-        <main class="main-content">
-          
-          <!-- VIEW 1: DASHBOARD VIEW -->
-          <section id="view-dashboard" class="dashboard-view">
-            <!-- Hero Greeting -->
-            <div class="dash-hero">
-              <div>
-                <h1 class="dash-hero-title">Welcome back, <span id="dash-hero-username">Alex</span>!</h1>
-                <p class="dash-hero-desc">Your personal AI prompt library is organized, synchronized, and ready to use.</p>
-              </div>
-              <button class="btn btn-primary btn-lg btn-open-new-prompt">
-                <span>＋</span> New AI Prompt
-              </button>
-            </div>
-
-            <!-- Statistics Metric Cards -->
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-icon" style="background-color: var(--accent-light); color: var(--accent-primary);">📝</div>
-                <div>
-                  <div class="stat-val" id="stat-total-prompts">0</div>
-                  <div class="stat-lbl">Total Prompts</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon" style="background-color: var(--color-info-bg); color: var(--color-info);">📁</div>
-                <div>
-                  <div class="stat-val" id="stat-total-categories">0</div>
-                  <div class="stat-lbl">Categories</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon" style="background-color: rgba(245, 158, 11, 0.15); color: #F59E0B;">⭐</div>
-                <div>
-                  <div class="stat-val" id="stat-total-favorites">0</div>
-                  <div class="stat-lbl">Favorites</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon" style="background-color: var(--color-success-bg); color: var(--color-success);">📋</div>
-                <div>
-                  <div class="stat-val" id="stat-total-copies">0</div>
-                  <div class="stat-lbl">Times Copied</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Quick Actions Bar -->
-            <div class="quick-actions-bar">
-              <button class="quick-action-btn btn-open-new-prompt">
-                <span style="color: var(--accent-primary); font-size: 1.2rem;">＋</span>
-                <span>New Prompt</span>
-              </button>
-              <button class="quick-action-btn btn-add-category">
-                <span style="color: #3B82F6; font-size: 1.2rem;">📂</span>
-                <span>New Category</span>
-              </button>
-              <button class="quick-action-btn" onclick="PromptVault.Prompts.setActiveView('notepad')">
-                <span style="color: #10B981; font-size: 1.2rem;">📝</span>
-                <span>Open Notepad</span>
-              </button>
-              <button class="quick-action-btn btn-open-template-builder">
-                <span style="color: #F59E0B; font-size: 1.2rem;">⚡</span>
-                <span>Prompt Template</span>
-              </button>
-            </div>
-
-            <!-- Dashboard 2-Column Section: Top Used Prompts + Recent Prompts -->
-            <div class="dash-sections-row">
-              <div class="dash-section-card">
-                <div class="dash-section-header">
-                  <h2 class="dash-section-title"><span>🔥</span> Most Used Prompts</h2>
-                  <a href="#" style="font-size: 0.8rem;" onclick="PromptVault.Prompts.setActiveView('recent')">View All</a>
-                </div>
-                <div class="most-used-list" id="dash-most-used-list">
-                  <!-- Dynamically rendered top copied prompts -->
-                </div>
-              </div>
-
-              <div class="dash-section-card">
-                <div class="dash-section-header">
-                  <h2 class="dash-section-title"><span>✨</span> Recently Added</h2>
-                  <a href="#" style="font-size: 0.8rem;" onclick="PromptVault.Prompts.setActiveView('prompts')">Browse</a>
-                </div>
-                <div id="dash-recent-grid" style="display: flex; flex-direction: column; gap: 14px;">
-                  <!-- Dynamically rendered recent prompt cards -->
-                </div>
-              </div>
-            </div>
-          </section>
-
-
-          <!-- VIEW 2: ALL PROMPTS / FAVORITES / RECENT WORKSPACE -->
-          <section id="view-prompts" class="hidden">
-            <div class="workspace-header">
-              <div class="workspace-top-bar">
-                <div class="workspace-title-box">
-                  <h1 class="workspace-title" id="workspace-view-title">All Prompts Workspace</h1>
-                  <span class="workspace-count" id="workspace-prompt-count">0 prompts</span>
-                </div>
-                <button class="btn btn-primary btn-open-new-prompt" style="font-weight: 700; box-shadow: 0 4px 14px var(--accent-glow);">
-                  <span>＋</span> <span>New Prompt (নতুন প্রমট তৈরি করুন)</span>
-                </button>
-              </div>
-
-              <!-- Filter & Sort Strip -->
-              <div class="workspace-filters-bar">
-                <div class="filter-left-group">
-                  <select id="filter-category-select" class="form-select" style="width: 170px;">
-                    <option value="all">All Categories</option>
-                  </select>
-
-                  <select id="filter-sort-select" class="form-select" style="width: 170px;">
-                    <option value="recent">Recently Added</option>
-                    <option value="copies">Most Copied</option>
-                    <option value="alpha">Alphabetical</option>
-                    <option value="oldest">Oldest First</option>
-                  </select>
-                </div>
-
-                <div class="filter-right-group">
-                  <button class="btn btn-secondary btn-sm" onclick="PromptVault.state.filter.tag='all'; PromptVault.state.filter.category='all'; PromptVault.Prompts.render();">
-                    Clear Filters
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Prompts Grid / List Container -->
-            <div id="prompts-container" class="prompts-grid">
-              <!-- Dynamically populated prompt cards -->
-            </div>
-          </section>
-
-
-          <!-- VIEW 3: NOTEPAD / SCRATCHPAD WORKSPACE -->
-          <section id="view-notepad" class="hidden">
-            <div class="notepad-view">
-              
-              <!-- Notes List Sidebar -->
-              <div class="notepad-sidebar">
-                <div class="notepad-sidebar-header">
-                  <span style="font-weight: 700; font-size: 0.95rem;">Scratchpad Notes</span>
-                  <button class="btn btn-primary btn-sm btn-add-note">
-                    <span>＋</span> New Note
-                  </button>
-                </div>
-                <div class="notepad-notes-list" id="notepad-notes-list">
-                  <!-- Dynamically populated notes cards -->
-                </div>
-              </div>
-
-              <!-- Note Editor Pane -->
-              <div class="notepad-editor-card">
-                <div class="notepad-editor-toolbar">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <button class="btn btn-sm btn-secondary" id="btn-note-add-bullet" title="Add checklist bullet">
-                      ☑ Add Checklist
-                    </button>
-                    <button class="btn btn-sm btn-icon" id="btn-note-pin" title="Pin Note">
-                      📌
-                    </button>
-                    <button class="btn btn-sm btn-icon" id="btn-note-copy" title="Copy Note Content">
-                      📋
-                    </button>
-                    <button class="btn btn-sm btn-icon" id="btn-note-clear" title="Clear Content">
-                      🧹
-                    </button>
-                    <button class="btn btn-sm btn-icon danger" id="btn-note-delete" title="Delete Note">
-                      🗑
-                    </button>
-                  </div>
-
-                  <div style="display: flex; align-items: center; gap: 12px;">
-                    <span id="notepad-save-status" style="font-size: 0.78rem; color: var(--text-muted);">✓ Saved</span>
-                    <!-- Save as Prompt Button -->
-                    <button class="btn btn-primary" id="btn-note-to-prompt" style="font-weight: 700; box-shadow: 0 2px 10px var(--accent-glow);">
-                      <span>💾</span> <span>Save as Prompt (প্রমট সেভ করুন)</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="notepad-editor-body">
-                  <input type="text" id="notepad-note-title" class="notepad-title-input" placeholder="Note Title...">
-                  <textarea id="notepad-note-content" class="notepad-content-input" placeholder="Type your ideas, character prompts, negative prompt rules, scene notes here..."></textarea>
-                </div>
-              </div>
-
-            </div>
-          </section>
-
-        </main>
-      </div>
-
-      <!-- MOBILE BOTTOM NAVIGATION -->
-      <nav class="mobile-bottom-nav">
-        <div class="mobile-nav-item active" data-view-target="dashboard">
-          <span>🏠</span>
-          <span>Home</span>
+          <div class="section-head"><h3>Recently added</h3><button class="text-btn" data-view-link="prompts">View all</button></div>
+          <div id="recentGrid" class="prompt-grid"></div>
+          <div id="emptyDashboard" class="empty-state hidden"><div>✦</div><h3>Your workspace is ready</h3><p>Create your first prompt or note to get started.</p><button class="primary-btn" id="emptyNewPrompt">Create prompt</button></div>
         </div>
-        <div class="mobile-nav-item" data-view-target="categories">
-          <span>📁</span>
-          <span>Folders</span>
-        </div>
-        <div class="mobile-nav-center-btn btn-open-new-prompt" title="New Prompt">
-          <span>＋</span>
-        </div>
-        <div class="mobile-nav-item" data-view-target="notepad">
-          <span>📝</span>
-          <span>Notes</span>
-        </div>
-        <div class="mobile-nav-item" onclick="PromptVault.UI.openModal('modal-settings')">
-          <span>⚙</span>
-          <span>Settings</span>
-        </div>
-      </nav>
 
-    </div>
+        <div id="promptsView" class="page-view hidden">
+          <div class="page-heading compact"><div><span class="eyebrow">LIBRARY</span><h2 id="libraryTitle">All prompts</h2><p id="librarySubtitle">Browse and manage your prompt collection.</p></div><div class="view-controls"><button class="filter-btn active" id="gridMode">▦</button><button class="filter-btn" id="listMode">☷</button></div></div>
+          <div class="filter-bar">
+            <select id="categoryFilter"><option value="">All categories</option></select>
+            <select id="sortFilter"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="used">Most used</option><option value="title">Title A–Z</option></select>
+            <button id="favoritesOnly" class="filter-chip">★ Favorites</button>
+          </div>
+          <div id="libraryGrid" class="prompt-grid"></div>
+          <div id="libraryEmpty" class="empty-state hidden"><div>⌕</div><h3>No prompts found</h3><p>Try another search or create a new prompt.</p></div>
+        </div>
 
-
-    <!-- ===============================================================
-         MODALS & OVERLAYS
-         =============================================================== -->
-
-    <!-- 1. PROMPT EDITOR MODAL -->
-    <div id="modal-prompt-editor" class="modal-overlay">
-      <div class="modal-content modal-lg">
-        <div class="modal-header">
-          <div class="modal-title" id="modal-editor-title">Create New AI Prompt</div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <button type="submit" form="prompt-editor-form" class="btn btn-primary btn-sm" style="font-weight: 700; box-shadow: 0 2px 10px var(--accent-glow);">
-              💾 Save Prompt
-            </button>
-            <button type="button" class="btn btn-icon modal-close-btn">&times;</button>
+        <div id="notesView" class="page-view hidden">
+          <div class="page-heading compact"><div><span class="eyebrow">SCRATCHPAD</span><h2>Notepad</h2><p>Capture ideas, rough prompts and reusable notes.</p></div><button id="saveNoteBtn" class="primary-btn">Save note</button></div>
+          <div class="notes-layout">
+            <aside id="notesList" class="notes-list"></aside>
+            <section class="note-editor">
+              <input id="noteTitle" class="note-title" placeholder="Untitled note">
+              <textarea id="noteBody" placeholder="Start writing..."></textarea>
+              <div class="note-footer"><span id="noteStatus">Ready</span><button id="noteToPrompt" class="secondary-btn">Save as prompt</button></div>
+            </section>
           </div>
         </div>
 
-        <form id="prompt-editor-form">
-          <div class="modal-body">
-            <div id="editor-duplicate-warning" class="badge" style="display: none; background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid #F59E0B; width: 100%; padding: 10px; margin-bottom: 14px; border-radius: var(--radius-md);"></div>
-
-            <!-- PROMPT TITLE & CATEGORY -->
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 14px;">
-              <div class="form-group">
-                <label class="form-label" for="editor-prompt-title">Prompt Title (প্রমটের শিরোনাম) *</label>
-                <input type="text" id="editor-prompt-title" class="form-input" placeholder="e.g. Cinematic Character Portrait" required>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="editor-prompt-category">Category (ক্যাটেগরি)</label>
-                <select id="editor-prompt-category" class="form-select">
-                  <!-- Populated dynamically -->
-                </select>
-              </div>
-            </div>
-
-            <!-- IMAGE UPLOAD OPTION -->
-            <div class="form-group">
-              <label class="form-label">
-                <span>Reference Image (প্রমটের ছবি আপলোড করুন)</span>
-                <span style="font-size: 0.74rem; color: var(--accent-primary);">📸 Upload from device</span>
-              </label>
-
-              <!-- Drag & Drop Upload Zone -->
-              <div class="image-upload-zone" id="editor-image-dropzone">
-                <input type="file" id="editor-image-file-input" accept="image/*" class="sr-only">
-                <div style="font-size: 2rem;">📤</div>
-                <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">
-                  Click to Upload or Drag & Drop Image Here
-                </div>
-                <div style="font-size: 0.76rem; color: var(--text-muted);">
-                  (কম্পিউটার/মোবাইল থেকে ছবি আপলোড করতে এখানে ক্লিক করুন)
-                </div>
-              </div>
-
-              <!-- Uploaded Image Live Preview -->
-              <div class="image-preview-wrapper" id="editor-image-preview-box" style="display: none;">
-                <img id="editor-image-preview-img" src="" alt="Uploaded image preview">
-                <button type="button" class="btn-remove-preview-img" id="btn-remove-uploaded-image" title="Remove image">✕</button>
-              </div>
-
-              <!-- Hidden input to store chosen image (DataURL or URL) -->
-              <input type="hidden" id="editor-prompt-image" value="assets/images/portrait_cinematic.jpg">
-
-              <!-- Or Choose from Presets -->
-              <div style="margin-top: 8px;">
-                <select id="editor-prompt-preset-select" class="form-select" style="font-size: 0.8rem; color: var(--text-secondary);">
-                  <option value="">-- বা নিচের তৈরি করা স্যাম্পল ছবি নির্বাচন করুন --</option>
-                  <option value="assets/images/portrait_cinematic.jpg">Cyberpunk Nomad Portrait</option>
-                  <option value="assets/images/cartoon_background.jpg">Studio Ghibli Castle Meadow</option>
-                  <option value="assets/images/horror_scene.jpg">Victorian Gothic Asylum</option>
-                  <option value="assets/images/character_turnaround.jpg">3D Inventor Turnaround Model</option>
-                  <option value="assets/images/cyberpunk_street.jpg">Rainy Neo Tokyo Alleys</option>
-                  <option value="assets/images/isometric_workspace.jpg">Isometric Futuristic Studio</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- PROMPT TEXT & ENHANCE -->
-            <div class="form-group">
-              <div class="form-label">
-                <span>AI Prompt Content (মূল প্রমট) *</span>
-                <button type="button" class="btn btn-ghost btn-sm" id="btn-enhance-prompt-trigger" style="color: var(--accent-primary);">
-                  ✨ AI Auto-Enhance
-                </button>
-              </div>
-              <textarea id="editor-prompt-text" class="form-textarea code-font" style="min-height: 120px;" placeholder="Create a cinematic portrait of..." required></textarea>
-            </div>
-
-            <!-- NEGATIVE PROMPT -->
-            <div class="form-group">
-              <label class="form-label" for="editor-negative-prompt">Negative Prompt (নেগেটিভ প্রমট - ঐচ্ছিক)</label>
-              <textarea id="editor-negative-prompt" class="form-textarea code-font" style="min-height: 60px;" placeholder="blurry, bad anatomy, deformed limbs, watermark, low quality..."></textarea>
-            </div>
-
-            <!-- TAGS -->
-            <div class="form-group">
-              <label class="form-label" for="editor-prompt-tags">Tags (কমা দিয়ে লিখুন)</label>
-              <input type="text" id="editor-prompt-tags" class="form-input" placeholder="Portrait, Cinematic, Cyberpunk, 8k">
-            </div>
-
-            <!-- MODEL, RATIO, STYLE -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
-              <div class="form-group">
-                <label class="form-label" for="editor-prompt-model">AI Model</label>
-                <select id="editor-prompt-model" class="form-select">
-                  <option value="Midjourney v6">Midjourney v6</option>
-                  <option value="Imagen 3">Imagen 3</option>
-                  <option value="Flux.1 Schnell">Flux.1 Schnell</option>
-                  <option value="SDXL 1.0">SDXL 1.0</option>
-                  <option value="DALL-E 3">DALL-E 3</option>
-                  <option value="Stable Diffusion">Stable Diffusion</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="editor-prompt-ratio">Aspect Ratio</label>
-                <select id="editor-prompt-ratio" class="form-select">
-                  <option value="16:9">16:9 (Landscape)</option>
-                  <option value="4:3">4:3 (Standard)</option>
-                  <option value="1:1">1:1 (Square)</option>
-                  <option value="9:16">9:16 (Vertical)</option>
-                  <option value="2:3">2:3 (Portrait)</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label" for="editor-prompt-style">Style</label>
-                <select id="editor-prompt-style" class="form-select">
-                  <option value="Photorealistic">Photorealistic</option>
-                  <option value="2D Cartoon">2D Cartoon</option>
-                  <option value="Cinematic">Cinematic</option>
-                  <option value="3D Octane">3D Octane</option>
-                  <option value="Horror">Horror</option>
-                  <option value="Isometric">Isometric</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- NOTES -->
-            <div class="form-group">
-              <label class="form-label" for="editor-prompt-notes">Notes & Tips (নোট ও টিপস)</label>
-              <textarea id="editor-prompt-notes" class="form-textarea" placeholder="Camera settings, seed recommendations, prompt tips..."></textarea>
-            </div>
-          </div>
-
-          <!-- FIXED STICKY FOOTER WITH PROMINENT SAVE BUTTON -->
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
-            <button type="submit" class="btn btn-primary btn-lg" style="font-weight: 800; padding: 12px 32px; box-shadow: 0 4px 15px var(--accent-glow);">
-              💾 Save Prompt (প্রমট সেভ করুন)
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-
-    <!-- 2. FULLSCREEN IMAGE LIGHTBOX -->
-    <div id="modal-lightbox" class="modal-overlay">
-      <div class="modal-content lightbox-modal">
-        <div class="lightbox-image-pane">
-          <img id="lightbox-image" src="" alt="Prompt Visual" class="lightbox-img">
-        </div>
-
-        <div class="lightbox-details-pane">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <h2 id="lightbox-title" style="font-size: 1.25rem; font-weight: 800; line-height: 1.3;">Prompt Title</h2>
-            <button class="btn btn-icon modal-close-btn">&times;</button>
-          </div>
-
-          <div id="lightbox-meta" style="display: flex; flex-wrap: wrap; gap: 8px;">
-            <!-- Category, Model, Ratio badges -->
-          </div>
-
-          <button id="lightbox-btn-copy" class="btn btn-primary btn-lg" style="width: 100%;">
-            <span>📋</span> <span>Copy Prompt</span>
-          </button>
-
-          <div>
-            <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Prompt</div>
-            <div id="lightbox-prompt-text" style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; padding: 12px; background: var(--bg-card-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-color); white-space: pre-wrap;"></div>
-          </div>
-
-          <div>
-            <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Negative Prompt</div>
-            <div id="lightbox-neg-prompt" style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; padding: 10px; background: var(--bg-card-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-color); color: var(--text-secondary);"></div>
-          </div>
-
-          <div>
-            <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Tags</div>
-            <div id="lightbox-tags" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+        <div id="settingsView" class="page-view hidden">
+          <div class="page-heading compact"><div><span class="eyebrow">ACCOUNT</span><h2>Settings</h2><p>Manage your profile and workspace.</p></div></div>
+          <div class="settings-card">
+            <div class="settings-section"><h3>Profile</h3><label>Display name<input id="settingsName"></label><label>Email<input id="settingsEmail" disabled></label><button id="saveProfileBtn" class="primary-btn">Save profile</button></div>
+            <div class="settings-section"><h3>Appearance</h3><div class="setting-line"><div><strong>Dark mode</strong><small>Use a darker workspace at night.</small></div><button id="settingsThemeBtn" class="toggle-btn">Toggle</button></div></div>
+            <div class="settings-section"><h3>Backup</h3><p class="muted">Export your prompts, categories and notes as JSON. Images are not included in the JSON backup.</p><div class="button-row"><button id="exportBtn" class="secondary-btn">Export JSON</button><button id="settingsImportBtn" class="secondary-btn">Import JSON</button><input id="importFile" type="file" accept=".json" hidden></div></div>
+            <div class="settings-section danger"><h3>Session</h3><button id="settingsLogout" class="danger-btn">Log out</button></div>
           </div>
         </div>
       </div>
+    </main>
+  </section>
+
+  <div id="promptModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card large">
+      <button class="modal-close" data-close="promptModal">×</button>
+      <div class="modal-head"><div><span class="eyebrow">PROMPT</span><h2 id="promptModalTitle">New prompt</h2></div></div>
+      <form id="promptForm">
+        <input id="promptId" type="hidden">
+        <div class="form-grid">
+          <label>Title<input id="promptTitle" required placeholder="e.g. Cinematic character portrait"></label>
+          <label>Category<select id="promptCategory"></select></label>
+        </div>
+        <label>Tags <input id="promptTags" placeholder="cartoon, character, cinematic"></label>
+        <div class="image-upload">
+          <div id="imagePreview" class="image-preview"><span>▧</span><small>Reference image</small></div>
+          <div><strong>Reference image</strong><p>Optional. JPG, PNG or WebP.</p><input id="promptImage" type="file" accept="image/png,image/jpeg,image/webp"></div>
+        </div>
+        <label>Prompt<textarea id="promptText" required class="code-area" placeholder="Write your complete generation prompt..."></textarea></label>
+        <label>Negative prompt<textarea id="negativeText" class="code-area small" placeholder="Optional negative prompt..."></textarea></label>
+        <label>Notes<textarea id="promptNotes" class="small" placeholder="Model, aspect ratio, workflow notes, etc."></textarea></label>
+        <div class="form-grid">
+          <label>Model / tool<input id="promptModel" placeholder="Imagen, Midjourney, ChatGPT Image..."></label>
+          <label>Aspect ratio<input id="promptRatio" placeholder="16:9"></label>
+        </div>
+        <div class="modal-actions"><button type="button" class="secondary-btn" data-close="promptModal">Cancel</button><button class="primary-btn" type="submit">Save prompt</button></div>
+      </form>
     </div>
-
-
-    <!-- 3. ADD CATEGORY MODAL -->
-    <div id="modal-add-category" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header">
-          <div class="modal-title">Create Custom Category</div>
-          <button class="btn btn-icon modal-close-btn">&times;</button>
-        </div>
-
-        <form id="form-add-category">
-          <div class="modal-body">
-            <div class="form-group">
-              <label class="form-label" for="new-cat-name">Category Name</label>
-              <input type="text" id="new-cat-name" class="form-input" placeholder="e.g. Cartoon Background, Horror, Stock" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Category Color Tag</label>
-              <div style="display: flex; gap: 14px; padding: 8px 0;">
-                <label style="cursor: pointer;"><input type="radio" name="cat-color" value="orange" checked> <span class="category-dot category-dot-orange"></span> Orange</label>
-                <label style="cursor: pointer;"><input type="radio" name="cat-color" value="blue"> <span class="category-dot category-dot-blue"></span> Blue</label>
-                <label style="cursor: pointer;"><input type="radio" name="cat-color" value="purple"> <span class="category-dot category-dot-purple"></span> Purple</label>
-                <label style="cursor: pointer;"><input type="radio" name="cat-color" value="green"> <span class="category-dot category-dot-green"></span> Green</label>
-                <label style="cursor: pointer;"><input type="radio" name="cat-color" value="red"> <span class="category-dot category-dot-red"></span> Red</label>
-                <label style="cursor: pointer;"><input type="radio" name="cat-color" value="yellow"> <span class="category-dot category-dot-yellow"></span> Yellow</label>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="new-cat-icon">Icon / Emoji</label>
-              <input type="text" id="new-cat-icon" class="form-input" value="📁" maxlength="2" style="width: 70px;">
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create Category</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-
-    <!-- 4. TEMPLATE BUILDER MODAL -->
-    <div id="modal-template-builder" class="modal-overlay">
-      <div class="modal-content modal-lg">
-        <div class="modal-header">
-          <div class="modal-title">⚡ Structured Prompt Template Builder</div>
-          <button class="btn btn-icon modal-close-btn">&times;</button>
-        </div>
-
-        <div class="modal-body">
-          <div style="margin-bottom: 16px;">
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;">QUICK PRESETS:</div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn btn-sm btn-secondary" data-template-preset="portrait">👤 Character Portrait</button>
-              <button class="btn btn-sm btn-secondary" data-template-preset="landscape">🌄 Ghibli Landscape</button>
-              <button class="btn btn-sm btn-secondary" data-template-preset="isometric">📐 3D Isometric Room</button>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="form-group">
-              <label class="form-label" for="tpl-subject">[SUBJECT]</label>
-              <input type="text" id="tpl-subject" class="form-input" placeholder="e.g. Cybernetic nomad with glowing jacket">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="tpl-style">[STYLE]</label>
-              <input type="text" id="tpl-style" class="form-input" placeholder="e.g. Cinematic hyperrealism">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="tpl-lighting">[LIGHTING]</label>
-              <input type="text" id="tpl-lighting" class="form-input" placeholder="e.g. Volumetric rim lighting, soft amber ambient">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="tpl-camera">[CAMERA]</label>
-              <input type="text" id="tpl-camera" class="form-input" placeholder="e.g. 85mm f/1.4 lens, shallow depth of field">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="tpl-background">[BACKGROUND]</label>
-              <input type="text" id="tpl-background" class="form-input" placeholder="e.g. Rain-slicked dystopian alleyway">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="tpl-quality">[QUALITY & RENDER]</label>
-              <input type="text" id="tpl-quality" class="form-input" placeholder="e.g. 8k, Unreal Engine 5, octane render">
-            </div>
-          </div>
-
-          <div style="margin-top: 14px;">
-            <label class="form-label">Assembled Prompt Preview</label>
-            <div id="tpl-live-preview" class="form-textarea code-font" style="min-height: 80px; padding: 12px; background: var(--bg-card-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-              Fill in the fields above to see your assembled prompt here...
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" id="btn-tpl-copy">📋 Copy Prompt</button>
-          <button type="button" class="btn btn-primary" id="btn-tpl-send-editor">🚀 Send to Prompt Editor</button>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- 5. COMMAND PALETTE MODAL (Ctrl + K) -->
-    <div id="modal-command-palette" class="modal-overlay">
-      <div class="modal-content cmd-palette-content">
-        <div class="cmd-search-input-wrap">
-          <span style="font-size: 1.1rem; color: var(--text-muted);">🔍</span>
-          <input type="text" id="cmd-palette-input" class="form-input" style="border: none; box-shadow: none; font-size: 1.05rem;" placeholder="Type to search prompts, categories, or actions...">
-          <kbd>Esc</kbd>
-        </div>
-        <div class="cmd-results-list" id="cmd-palette-results">
-          <!-- Populated dynamically -->
-        </div>
-      </div>
-    </div>
-
-
-    <!-- 6. SETTINGS & BACKUP MODAL -->
-    <div id="modal-settings" class="modal-overlay">
-      <div class="modal-content modal-lg">
-        <div class="modal-header">
-          <div class="modal-title">⚙ Workspace Settings & Cloud Sync</div>
-          <button class="btn btn-icon modal-close-btn">&times;</button>
-        </div>
-
-        <div class="modal-body" style="display: flex; flex-direction: column; gap: 24px;">
-          <!-- Backup & Data Export Section -->
-          <div>
-            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 8px;">💾 Backup & Data Export</h3>
-            <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px;">
-              Export your prompt library, categories, and tags into a JSON backup file or restore from a previously exported backup.
-            </p>
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-              <button type="button" class="btn btn-secondary" id="btn-export-backup">
-                📥 Export All Prompts (JSON)
-              </button>
-              <label class="btn btn-secondary" style="cursor: pointer; margin: 0;">
-                📤 Import Backup (JSON)
-                <input type="file" id="import-file-input" accept=".json" class="sr-only">
-              </label>
-              <button type="button" class="btn btn-ghost danger" id="btn-reset-library">
-                🔄 Reset to Sample Data
-              </button>
-            </div>
-          </div>
-
-          <div class="dropdown-divider"></div>
-
-          <!-- Firebase Cloud Sync Section -->
-          <div>
-            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 8px;">☁️ Firebase Cloud Sync Configuration</h3>
-            <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px;">
-              Sync prompts across PC and Mobile seamlessly by connecting your Firebase project credentials.
-            </p>
-
-            <form id="firebase-config-form" style="display: flex; flex-direction: column; gap: 12px;">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div class="form-group" style="margin: 0;">
-                  <label class="form-label" for="fb-api-key">Firebase API Key</label>
-                  <input type="text" id="fb-api-key" class="form-input" value="AIzaSyB4T1Z_HTsJuXagehxzSkwb5iLyHIt9w78" readonly>
-                </div>
-                <div class="form-group" style="margin: 0;">
-                  <label class="form-label" for="fb-project-id">Project ID</label>
-                  <input type="text" id="fb-project-id" class="form-input" value="prompt-save-6f510" readonly>
-                </div>
-              </div>
-              <div class="form-group" style="margin: 0;">
-                <label class="form-label" for="fb-auth-domain">Auth Domain</label>
-                <input type="text" id="fb-auth-domain" class="form-input" value="prompt-save-6f510.firebaseapp.com" readonly>
-              </div>
-
-              <div style="display: flex; gap: 10px; margin-top: 6px;">
-                <button type="submit" class="btn btn-primary btn-sm">Save Firebase Configuration</button>
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-firestore-rules">📋 Copy Firestore Security Rules</button>
-              </div>
-            </form>
-          </div>
-
-          <div class="dropdown-divider"></div>
-
-          <!-- Keyboard Shortcuts Section -->
-          <div>
-            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 10px;">⌨ Keyboard Shortcuts</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.82rem;">
-              <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-card-subtle); border-radius: var(--radius-sm);">
-                <span>Quick Search / Command Palette</span>
-                <div><kbd>Ctrl</kbd> + <kbd>K</kbd></div>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-card-subtle); border-radius: var(--radius-sm);">
-                <span>New Prompt</span>
-                <div><kbd>Ctrl</kbd> + <kbd>N</kbd></div>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-card-subtle); border-radius: var(--radius-sm);">
-                <span>New Scratchpad Note</span>
-                <div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd></div>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-card-subtle); border-radius: var(--radius-sm);">
-                <span>Close Popup / Lightbox</span>
-                <div><kbd>Esc</kbd></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary modal-close-btn">Close</button>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- 7. LOGOUT CONFIRMATION MODAL -->
-    <div id="modal-logout-confirm" class="modal-overlay">
-      <div class="modal-content" style="max-width: 420px;">
-        <div class="modal-header">
-          <div class="modal-title">Confirm Logout</div>
-          <button class="btn btn-icon modal-close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p style="font-size: 0.95rem; color: var(--text-primary); margin-bottom: 6px;">Are you sure you want to log out?</p>
-          <p style="font-size: 0.82rem; color: var(--text-muted);">Your prompts and scratchpad notes are safely saved in your workspace.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
-          <button type="button" class="btn btn-danger" id="btn-confirm-logout">Logout</button>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- 8. FORGOT PASSWORD MODAL -->
-    <div id="modal-forgot-password" class="modal-overlay">
-      <div class="modal-content" style="max-width: 440px;">
-        <div class="modal-header">
-          <div class="modal-title">Reset Your Password</div>
-          <button class="btn btn-icon modal-close-btn">&times;</button>
-        </div>
-        <form id="forgot-password-form">
-          <div class="modal-body">
-            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">
-              Enter your registered account email and we'll send you instructions to reset your password.
-            </p>
-            <div class="form-group">
-              <label class="form-label" for="forgot-email">Account Email</label>
-              <input type="email" id="forgot-email" class="form-input" placeholder="name@promptvault.io" required>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary modal-close-btn">Cancel</button>
-            <button type="submit" class="btn btn-primary">Send Reset Link</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-
-    <!-- 9. VERSION HISTORY MODAL -->
-    <div id="modal-version-history" class="modal-overlay">
-      <div class="modal-content" style="max-width: 540px;">
-        <div class="modal-header">
-          <div class="modal-title">🕒 Prompt Revision History</div>
-          <button class="btn btn-icon modal-close-btn">&times;</button>
-        </div>
-        <div class="modal-body" id="version-history-list">
-          <!-- Dynamically populated versions -->
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary modal-close-btn">Close</button>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- 10. KEYBOARD SHORTCUTS CHEATSHEET MODAL -->
-    <div id="modal-shortcuts-cheatsheet" class="modal-overlay">
-      <div class="modal-content" style="max-width: 480px;">
-        <div class="modal-header">
-          <div class="modal-title">⌨ Keyboard Shortcuts</div>
-          <button class="btn btn-icon modal-close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.86rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-card-subtle); border-radius: var(--radius-md);">
-              <span>Search / Command Palette</span>
-              <div><kbd>Ctrl</kbd> + <kbd>K</kbd></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-card-subtle); border-radius: var(--radius-md);">
-              <span>Create New Prompt</span>
-              <div><kbd>Ctrl</kbd> + <kbd>N</kbd></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-card-subtle); border-radius: var(--radius-md);">
-              <span>New Scratchpad Note</span>
-              <div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: var(--bg-card-subtle); border-radius: var(--radius-md);">
-              <span>Close Any Dialog</span>
-              <div><kbd>Esc</kbd></div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary modal-close-btn">Got it</button>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- FLOATING TOAST NOTIFICATIONS CONTAINER -->
-    <div id="toast-container" class="toast-container"></div>
-
   </div>
 
-  <!-- FIREBASE SDKs (Official Google CDN) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
+  <div id="categoryModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card small-modal">
+      <button class="modal-close" data-close="categoryModal">×</button>
+      <span class="eyebrow">ORGANIZE</span><h2>New category</h2>
+      <form id="categoryForm"><label>Category name<input id="categoryName" required placeholder="e.g. Horror Backgrounds"></label><label>Color<select id="categoryColor"><option value="orange">Orange</option><option value="blue">Blue</option><option value="purple">Purple</option><option value="green">Green</option><option value="red">Red</option></select></label><div class="modal-actions"><button type="button" class="secondary-btn" data-close="categoryModal">Cancel</button><button class="primary-btn">Create</button></div></form>
+    </div>
+  </div>
 
-  <!-- APPLICATION SCRIPTS (Modular, Zero Build Step Required) -->
-  <script src="js/firebase-service.js"></script>
-  <script src="js/state.js"></script>
-  <script src="js/categories.js"></script>
-  <script src="js/prompts.js"></script>
-  <script src="js/notepad.js"></script>
-  <script src="js/templates.js"></script>
-  <script src="js/backup.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/app.js"></script>
+  <div id="confirmModal" class="modal hidden">
+    <div class="modal-backdrop"></div><div class="modal-card small-modal"><h2 id="confirmTitle">Are you sure?</h2><p id="confirmText" class="muted"></p><div class="modal-actions"><button id="confirmCancel" class="secondary-btn">Cancel</button><button id="confirmOk" class="danger-btn">Confirm</button></div></div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
