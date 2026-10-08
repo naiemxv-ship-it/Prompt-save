@@ -59,3 +59,11 @@ The included rules protect each user's data by their Firebase Auth UID.
 The Firebase web API key is not a password. The important protection is Firebase Authentication plus Firestore/Storage Security Rules. Never put service-account/private keys in frontend files.
 
 For production, consider adding App Check, email verification, rate limits, stronger validation, and a privacy/terms page.
+
+
+## Image-first upload optimization
+- Uploaded images are compressed in the browser to WebP before Firebase Storage upload.
+- A smaller 640px thumbnail is stored for fast library/card loading.
+- The larger image is capped at 1600px for prompt detail/reference use.
+- Prompt metadata is saved immediately; image upload runs in the background so the UI does not wait.
+- Existing image URLs remain compatible.

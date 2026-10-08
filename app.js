@@ -154,7 +154,7 @@ function getFilteredPrompts(){
 }
 function promptCard(p){
   const cat=categories.find(c=>c.id===p.categoryId);
-  const image=p.imageUrl?`<img src="${escAttr(p.imageUrl)}" alt="">`:`<div class="image-placeholder"><span>✦</span></div>`;
+  const image=(p.imageThumbUrl||p.imageUrl)?`<img src="${escAttr(p.imageThumbUrl||p.imageUrl)}" alt="" loading="lazy" decoding="async">`:`<div class="image-placeholder"><span>✦</span></div>`;
   return `<article class="prompt-card ${listMode?"list-card":""}" data-id="${p.id}">
     <div class="prompt-image">${image}<button class="star-btn ${p.favorite?"on":""}" data-action="favorite" title="Favorite">★</button></div>
     <div class="prompt-card-body">
@@ -205,6 +205,64 @@ async function copyPrompt(id){
   }catch{toast("Clipboard permission was blocked.","error");}
 }
 
+
+// Image-first pipeline: compress large uploads in the browser before Firebase Storage.
+// This keeps Firebase storage/network usage low and makes thumbnails load much faster.
+async function compressImage(file, maxSide=1280, quality=0.76){
+  if(!file) return null;
+  const bitmap = await createImageBitmap(file, {imageOrientation:"from-image"}).catch(()=>null);
+  let width, height, drawSource;
+  if(bitmap){
+    width=bitmap.width; height=bitmap.height; drawSource=bitmap;
+  }else{
+    const img=await new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file), im=new Image();
+      im.onload=()=>{URL.revokeObjectURL(url);resolve(im)};
+      im.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("Image could not be read."))};
+      im.src=url;
+    });
+    width=img.naturalWidth; height=img.naturalHeight; drawSource=img;
+  }
+  const scale=Math.min(1,maxSide/Math.max(width,height));
+  const canvas=document.createElement("canvas");
+  canvas.width=Math.max(1,Math.round(width*scale));
+  canvas.height=Math.max(1,Math.round(height*scale));
+  const ctx=canvas.getContext("2d",{alpha:false});
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
+  ctx.drawImage(drawSource,0,0,canvas.width,canvas.height);
+  if(bitmap) bitmap.close();
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",quality));
+  if(!blob) throw new Error("WebP compression failed.");
+  return new File([blob],`${Date.now()}-${crypto.randomUUID?.()||Math.random().toString(36).slice(2)}.webp`,{type:"image/webp"});
+}
+
+async function makeImagePreview(file){
+  if(!file)return;
+  try{
+    const small=await compressImage(file,900,0.72);
+    const url=URL.createObjectURL(small);
+    $("imagePreview").innerHTML=`<img src="${url}" alt="Selected image">`;
+  }catch{
+    const r=new FileReader();
+    r.onload=()=>$("imagePreview").innerHTML=`<img src="${r.result}" alt="Selected image">`;
+    r.readAsDataURL(file);
+  }
+}
+
+async function uploadPromptImage(file,promptId){
+  const full=await compressImage(file,1600,0.78);
+  const thumb=await compressImage(file,640,0.70);
+  const stamp=Date.now();
+  const fullRef=ref(storage,`users/${user.uid}/prompts/${promptId}/${stamp}-full.webp`);
+  const thumbRef=ref(storage,`users/${user.uid}/prompts/${promptId}/${stamp}-thumb.webp`);
+  await Promise.all([
+    uploadBytes(fullRef,full,{contentType:"image/webp",cacheControl:"public,max-age=31536000,immutable"}),
+    uploadBytes(thumbRef,thumb,{contentType:"image/webp",cacheControl:"public,max-age=31536000,immutable"})
+  ]);
+  const [imageUrl,imageThumbUrl]=await Promise.all([getDownloadURL(fullRef),getDownloadURL(thumbRef)]);
+  return {imageUrl,imageThumbUrl};
+}
+
 function openPrompt(id=null){
   $("promptForm").reset();$("promptId").value=id||"";
   $("promptModalTitle").textContent=id?"Edit prompt":"New prompt";
@@ -228,32 +286,59 @@ $("promptForm").onsubmit=async e=>{
     text:$("promptText").value.trim(),negative:$("negativeText").value.trim(),notes:$("promptNotes").value.trim(),
     model:$("promptModel").value.trim(),ratio:$("promptRatio").value.trim(),updatedAt:serverTimestamp()
   };
+  const localImageUrl=file?URL.createObjectURL(file):null;
   try{
     if(id){
       const old=prompts.find(p=>p.id===id);
+      if(!old)throw new Error("Prompt not found");
       if(file){
-        const storageRef=ref(storage,`users/${user.uid}/prompts/${id}/${Date.now()}-${file.name}`);
-        await uploadBytes(storageRef,file);base.imageUrl=await getDownloadURL(storageRef);
-      }else if(old?.imageUrl)base.imageUrl=old.imageUrl;
-      await updateDoc(doc(db,"users",user.uid,"prompts",id),base);
+        base.imageUrl=localImageUrl;
+        base.imageThumbUrl=localImageUrl;
+      }else if(old.imageUrl){
+        base.imageUrl=old.imageUrl;
+        base.imageThumbUrl=old.imageThumbUrl||old.imageUrl;
+      }
+      // Save text/metadata immediately; image upload continues in background.
+      await updateDoc(doc(db,"users",user.uid,"prompts",id),{...base,...(file?{imageUrl:localImageUrl,imageThumbUrl:localImageUrl}:{})});
       Object.assign(old,base);
-      toast("Prompt updated.");
+      closeModal("promptModal"); renderAll(); toast(file?"Prompt saved — uploading image…":"Prompt updated.");
+      if(file){
+        (async()=>{
+          try{
+            const uploaded=await uploadPromptImage(file,id);
+            await updateDoc(doc(db,"users",user.uid,"prompts",id),uploaded);
+            Object.assign(old,uploaded); renderAll(); toast("Image uploaded and optimized.");
+          }catch(err){console.error(err);toast("Prompt saved, but image upload failed. Try editing the prompt and uploading again.","error");}
+          finally{if(localImageUrl)URL.revokeObjectURL(localImageUrl);}
+        })();
+      }
     }else{
       base.favorite=false;base.copyCount=0;base.createdAt=serverTimestamp();
+      if(file){base.imageUrl=localImageUrl;base.imageThumbUrl=localImageUrl;}
       const newDoc=await addDoc(collection(db,"users",user.uid,"prompts"),base);
+      const localPrompt={id:newDoc.id,...base,createdAt:new Date()};
+      prompts.unshift(localPrompt);
+      closeModal("promptModal"); renderAll(); toast(file?"Prompt saved — uploading image…":"Prompt saved.");
       if(file){
-        const storageRef=ref(storage,`users/${user.uid}/prompts/${newDoc.id}/${Date.now()}-${file.name}`);
-        await uploadBytes(storageRef,file);base.imageUrl=await getDownloadURL(storageRef);
-        await updateDoc(newDoc,{imageUrl:base.imageUrl});
+        (async()=>{
+          try{
+            const uploaded=await uploadPromptImage(file,newDoc.id);
+            await updateDoc(newDoc,uploaded);
+            Object.assign(localPrompt,uploaded); renderAll(); toast("Image uploaded and optimized.");
+          }catch(err){console.error(err);toast("Prompt saved, but image upload failed. Try editing the prompt and uploading again.","error");}
+          finally{if(localImageUrl)URL.revokeObjectURL(localImageUrl);}
+        })();
       }
-      prompts.unshift({id:newDoc.id,...base,createdAt:new Date()});
-      toast("Prompt saved.");
     }
-    closeModal("promptModal");renderAll();
-  }catch(err){console.error(err);toast("Could not save prompt. Check Firebase setup.","error");}
+  }catch(err){
+    if(localImageUrl)URL.revokeObjectURL(localImageUrl);
+    console.error(err);toast("Could not save prompt. Check Firebase setup.","error");
+  }
 };
+
 $("promptImage").onchange=e=>{
-  const f=e.target.files[0];if(f){const r=new FileReader();r.onload=()=>{$("imagePreview").innerHTML=`<img src="${r.result}" alt="">`};r.readAsDataURL(f);}
+  const f=e.target.files[0];
+  if(f) makeImagePreview(f);
 };
 
 async function deletePrompt(id){
