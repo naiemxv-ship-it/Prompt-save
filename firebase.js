@@ -5,7 +5,7 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-s
 import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB4T1Z_HTsJuXagehxzSkwb5iLyHIt9w78",
+  apiKey: "AIzaSyB4T1Z_HTsJuXagehxzSkwb5iLyHiT9w78",
   authDomain: "prompt-save-6f510.firebaseapp.com",
   projectId: "prompt-save-6f510",
   storageBucket: "prompt-save-6f510.firebasestorage.app",
