@@ -238,9 +238,21 @@ function readAsciiSettings(){
   };
 }
 
+// Firestore does not allow arrays nested inside arrays. Store each color row as a
+// flat string (#rrggbb repeated), while still reading older nested-array backups.
+function normalizeAsciiColors(colors=[]){
+  if(!Array.isArray(colors)) return [];
+  return colors.map(row=>{
+    if(typeof row === "string") return row;
+    if(Array.isArray(row)) return row.map(c=>/^#[0-9a-f]{6}$/i.test(String(c||""))?String(c):"#000000").join("");
+    return "";
+  });
+}
 function coloredAsciiHTML(art, colors=[], maxCols=Infinity){
+  const safeColors=normalizeAsciiColors(colors);
   return String(art||"").split("\n").map((line,y)=>[...line].slice(0,maxCols).map((ch,x)=>{
-    const color=colors?.[y]?.[x];
+    const row=safeColors[y]||"";
+    const color=typeof row === "string" ? row.slice(x*7,x*7+7) : "";
     return color && /^#[0-9a-f]{6}$/i.test(color) ? `<span style="color:${color}">${escapeHTML(ch)}</span>` : escapeHTML(ch);
   }).join("")).join("\n");
 }
@@ -395,11 +407,11 @@ $("promptForm").onsubmit=async e=>{
   };
   if(currentAsciiArt){
     base.asciiArt=currentAsciiArt;
-    base.asciiColors=currentAsciiColors;
+    base.asciiColors=normalizeAsciiColors(currentAsciiColors);
     base.asciiSettings=settings;
   } else if(old?.asciiArt){
     base.asciiArt=old.asciiArt;
-    base.asciiColors=old.asciiColors||[];
+    base.asciiColors=normalizeAsciiColors(old.asciiColors||[]);
     base.asciiSettings=old.asciiSettings||settings;
   }
   // Clear legacy image URLs from the document when the prompt is converted to ASCII.
@@ -428,7 +440,13 @@ $("promptForm").onsubmit=async e=>{
       closeModal("promptModal");renderAll();toast(currentAsciiArt?"Prompt saved with ASCII preview only.":"Prompt saved.");
     }
   }catch(err){
-    console.error(err);toast("Could not save prompt. Check Firebase setup and Rules.","error");
+    console.error("PromptVault save prompt failed:",err);
+    const code=err?.code ? ` (${err.code})` : "";
+    const detail=err?.code==="permission-denied" ? "Firestore Rules denied the write. Publish the matching rules for prompt-save-6f510." :
+      err?.code==="unauthenticated" ? "Please sign out and sign in again." :
+      /nested arrays/i.test(err?.message||"") ? "ASCII color data format was invalid. Reopen the prompt and save again." :
+      (err?.message||"Unknown Firebase error");
+    toast(`Could not save prompt${code}: ${detail}`,"error");
   }
 };
 
@@ -613,7 +631,7 @@ $("importFile").onchange=async e=>{
     const data=JSON.parse(await f.text());
     if(!Array.isArray(data.prompts))throw new Error("Invalid backup");
     for(const c of (data.categories||[])){const {id,...payload}=c; if(id)await setDoc(doc(db,"users",user.uid,"categories",id),{...payload,createdAt:payload.createdAt||serverTimestamp()},{merge:true});else await addDoc(collection(db,"users",user.uid,"categories"),{...payload,createdAt:serverTimestamp()});}
-    for(const p of data.prompts){const {id,...payload}=p; const record={...payload,createdAt:payload.createdAt||serverTimestamp(),updatedAt:serverTimestamp()}; if(id)await setDoc(doc(db,"users",user.uid,"prompts",id),record,{merge:true});else await addDoc(collection(db,"users",user.uid,"prompts"),record);}
+    for(const p of data.prompts){const {id,...payload}=p; if(payload.asciiColors)payload.asciiColors=normalizeAsciiColors(payload.asciiColors); const record={...payload,createdAt:payload.createdAt||serverTimestamp(),updatedAt:serverTimestamp()}; if(id)await setDoc(doc(db,"users",user.uid,"prompts",id),record,{merge:true});else await addDoc(collection(db,"users",user.uid,"prompts"),record);}
     for(const n of (data.notes||[])){const {id,...payload}=n; const record={...payload,createdAt:payload.createdAt||serverTimestamp(),updatedAt:serverTimestamp()}; if(id)await setDoc(doc(db,"users",user.uid,"notes",id),record,{merge:true});else await addDoc(collection(db,"users",user.uid,"notes"),record);}
     await loadAll();toast("Backup imported.");
   }catch(err){toast("Invalid or incompatible JSON backup.","error");}
