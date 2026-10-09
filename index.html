@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta name="theme-color" content="#111827">
+  <meta name="description" content="Your personal AI prompt workspace. Save, organize, and reuse prompts.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/promptvault.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/promptvault.svg">
   <title>PromptVault — AI Prompt Workspace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -215,6 +222,11 @@
     <div class="modal-backdrop"></div><div class="modal-card small-modal"><h2 id="confirmTitle">Are you sure?</h2><p id="confirmText" class="muted"></p><div class="modal-actions"><button id="confirmCancel" class="secondary-btn">Cancel</button><button id="confirmOk" class="danger-btn">Confirm</button></div></div>
   </div>
 
+  <script>
+    if ("serviceWorker" in navigator && location.protocol === "https:") {
+      window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(err => console.warn("PWA service worker registration failed:", err)));
+    }
+  </script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

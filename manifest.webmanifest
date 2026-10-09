@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "PromptVault — AI Prompt Workspace",
+  "short_name": "PromptVault",
+  "description": "Save, organize, and reuse your AI prompts.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "icons": [
+    { "src": "./icons/promptvault.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

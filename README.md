@@ -71,3 +71,10 @@ For production, consider adding App Check, email verification, rate limits, stro
 - The ASCII text, sampled colors and settings are stored in Firestore. New image files are never uploaded to Firebase Storage.
 - The Copy Prompt button copies only the prompt text; ASCII art is not copied.
 - Existing image files previously uploaded to Firebase Storage are not automatically deleted in bulk. When an old prompt is edited and converted to ASCII, its stored image URLs are removed and the old objects are best-effort deleted.
+
+
+## Android PWA installation
+
+This project includes a web app manifest, app icon, and service worker for installable PWA support. Deploy the files to Firebase Hosting over HTTPS. Open the hosted site in Chrome on Android, sign in, open the three-dot menu, and choose **Install app** or **Add to Home screen**. The PWA uses the existing Firebase project and does not migrate or delete Firestore data. Firebase operations still require an internet connection.
+
+After updating the files, deploy Hosting only if you do not intend to change Firebase rules: `firebase deploy --only hosting`.
