@@ -1,9 +1,8 @@
-import {
-  auth, db, setPersistence, browserLocalPersistence, browserSessionPersistence
-} from "./firebase.js";
+import { auth, db } from "./firebase.js";
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, sendPasswordResetEmail, updateProfile
+  onAuthStateChanged, sendPasswordResetEmail, updateProfile,
+  setPersistence, browserLocalPersistence, browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 import {
   collection, doc, addDoc, setDoc, getDocs, getDoc, updateDoc, deleteDoc,
@@ -14,7 +13,7 @@ const $ = id => document.getElementById(id);
 const qsa = s => [...document.querySelectorAll(s)];
 let user = null, prompts = [], categories = [], notes = [], currentNoteId = null;
 let activeView = "dashboard", activeCategory = "", favoritesOnly = false, listMode = false;
-let currentCompressedBase64 = null; // বর্তমান ফর্মের কম্প্রেসড ছবি রাখার জন্য
+let currentCompressedBase64 = null;
 
 const defaultCategories = [
   ["Characters","purple"],["Backgrounds","blue"],["Animation","orange"],["Horror","red"],["Stock","green"],["YouTube","orange"]
@@ -52,9 +51,13 @@ $("showLogin").onclick=()=>showAuth("login");
 
 $("loginForm").onsubmit=async e=>{
   e.preventDefault();
+  const email = $("loginEmail").value.trim();
+  const pass = $("loginPassword").value;
   try{
-    await setPersistence(auth,$("rememberMe").checked?browserLocalPersistence:browserSessionPersistence);
-    await signInWithEmailAndPassword(auth,$("loginEmail").value.trim(),$("loginPassword").value);
+    if(setPersistence && browserLocalPersistence){
+      await setPersistence(auth, $("rememberMe")?.checked ? browserLocalPersistence : browserSessionPersistence).catch(()=>{});
+    }
+    await signInWithEmailAndPassword(auth, email, pass);
   }catch(err){toast(friendlyError(err),"error");}
 };
 
@@ -156,7 +159,6 @@ function getFilteredPrompts(){
   return arr;
 }
 
-// ফ্রন্টএন্ডে ইমেজ হ্যান্ডলিং ও কার্ড রেন্ডারিং
 function promptCard(p){
   const cat=categories.find(c=>c.id===p.categoryId);
   const imgUrl = p.imageUrl || p.imageThumbUrl || "";
@@ -217,7 +219,6 @@ async function copyPrompt(id){
   }catch{toast("Clipboard permission was blocked.","error");}
 }
 
-// স্মার্ট ইমেজ কম্প্রেসর (Firestore 1MB সেফ: সাইজ নামিয়ে ৬০-৮০ KB করা)
 function compressImageToBase64(file, maxSide=600, quality=0.6){
   return new Promise((resolve, reject) => {
     if(!file) return resolve(null);
@@ -240,10 +241,7 @@ function compressImageToBase64(file, maxSide=600, quality=0.6){
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        // JPEG/WebP ফরম্যাটে Base64 তৈরি
-        const base64 = canvas.toDataURL("image/jpeg", quality);
-        resolve(base64);
+        resolve(canvas.toDataURL("image/jpeg", quality));
       };
       img.onerror = () => reject(new Error("Image decoding failed"));
       img.src = e.target.result;
