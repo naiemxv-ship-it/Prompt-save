@@ -1,5 +1,5 @@
 import {
-  auth, db, storage, setPersistence, browserLocalPersistence, browserSessionPersistence
+  auth, db, setPersistence, browserLocalPersistence, browserSessionPersistence
 } from "./firebase.js";
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
@@ -9,14 +9,12 @@ import {
   collection, doc, addDoc, setDoc, getDocs, getDoc, updateDoc, deleteDoc,
   query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
-import {
-  ref, uploadBytes, getDownloadURL, deleteObject
-} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-storage.js";
 
 const $ = id => document.getElementById(id);
 const qsa = s => [...document.querySelectorAll(s)];
 let user = null, prompts = [], categories = [], notes = [], currentNoteId = null;
 let activeView = "dashboard", activeCategory = "", favoritesOnly = false, listMode = false;
+let currentCompressedBase64 = null; // বর্তমান ফর্মের কম্প্রেসড ছবি রাখার জন্য
 
 const defaultCategories = [
   ["Characters","purple"],["Backgrounds","blue"],["Animation","orange"],["Horror","red"],["Stock","green"],["YouTube","orange"]
@@ -119,28 +117,33 @@ function renderUser(){
 }
 
 function renderAll(){renderCategories();renderStats();renderDashboard();renderLibrary();renderNotes();fillCategorySelects();}
+
 function renderCategories(){
   const nav=$("categoryNav");
   nav.innerHTML=categories.map(c=>`<button class="category-nav" data-cat="${escAttr(c.id)}"><i class="dot ${c.color||"orange"}"></i><span>${escapeHTML(c.name)}</span><em>${prompts.filter(p=>p.categoryId===c.id).length}</em></button>`).join("");
   nav.querySelectorAll(".category-nav").forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;activeView="prompts";setView("prompts");});
 }
+
 function renderStats(){
   $("statPrompts").textContent=prompts.length;
   $("statCategories").textContent=categories.length;
   $("statFavorites").textContent=prompts.filter(p=>p.favorite).length;
   $("statCopied").textContent=prompts.reduce((a,p)=>a+(p.copyCount||0),0);
 }
+
 function renderDashboard(){
   const recent=prompts.slice(0,8); $("recentGrid").innerHTML=recent.map(promptCard).join("");
   $("emptyDashboard").classList.toggle("hidden",prompts.length>0);
   bindCards($("recentGrid"));
 }
+
 function fillCategorySelects(){
   const opts=categories.map(c=>`<option value="${escAttr(c.id)}">${escapeHTML(c.name)}</option>`).join("");
   $("categoryFilter").innerHTML=`<option value="">All categories</option>${opts}`;
   $("promptCategory").innerHTML=opts;
   if(activeCategory)$("categoryFilter").value=activeCategory;
 }
+
 function getFilteredPrompts(){
   let arr=[...prompts], search=$("globalSearch").value.trim().toLowerCase();
   if(activeCategory)arr=arr.filter(p=>p.categoryId===activeCategory);
@@ -152,9 +155,15 @@ function getFilteredPrompts(){
   if(sort==="title")arr.sort((a,b)=>(a.title||"").localeCompare(b.title||""));
   return arr;
 }
+
+// ফ্রন্টএন্ডে ইমেজ হ্যান্ডলিং ও কার্ড রেন্ডারিং
 function promptCard(p){
   const cat=categories.find(c=>c.id===p.categoryId);
-  const image=(p.imageThumbUrl||p.imageUrl)?`<img src="${escAttr(p.imageThumbUrl||p.imageUrl)}" alt="" loading="lazy" decoding="async">`:`<div class="image-placeholder"><span>✦</span></div>`;
+  const imgUrl = p.imageUrl || p.imageThumbUrl || "";
+  const image = imgUrl
+    ? `<img src="${escAttr(imgUrl)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'image-placeholder\\'><span>✦</span></div>';">`
+    : `<div class="image-placeholder"><span>✦</span></div>`;
+
   return `<article class="prompt-card ${listMode?"list-card":""}" data-id="${p.id}">
     <div class="prompt-image">${image}<button class="star-btn ${p.favorite?"on":""}" data-action="favorite" title="Favorite">★</button></div>
     <div class="prompt-card-body">
@@ -166,6 +175,7 @@ function promptCard(p){
     </div>
   </article>`;
 }
+
 function renderLibrary(){
   const arr=getFilteredPrompts();
   $("libraryGrid").className=`prompt-grid ${listMode?"list-view":""}`;
@@ -174,6 +184,7 @@ function renderLibrary(){
   $("libraryTitle").textContent=activeCategory?(categories.find(c=>c.id===activeCategory)?.name||"Category"):(favoritesOnly?"Favorites":"All prompts");
   bindCards($("libraryGrid"));
 }
+
 function bindCards(container){
   container.querySelectorAll(".prompt-card").forEach(card=>{
     card.onclick=e=>{
@@ -194,6 +205,7 @@ async function toggleFavorite(id){
   await updateDoc(doc(db,"users",user.uid,"prompts",id),{favorite:p.favorite});
   renderAll();toast(p.favorite?"Added to favorites":"Removed from favorites");
 }
+
 async function copyPrompt(id){
   const p=prompts.find(x=>x.id===id);if(!p)return;
   try{
@@ -205,140 +217,106 @@ async function copyPrompt(id){
   }catch{toast("Clipboard permission was blocked.","error");}
 }
 
-
-// Image-first pipeline: compress large uploads in the browser before Firebase Storage.
-// This keeps Firebase storage/network usage low and makes thumbnails load much faster.
-async function compressImage(file, maxSide=1280, quality=0.76){
-  if(!file) return null;
-  const bitmap = await createImageBitmap(file, {imageOrientation:"from-image"}).catch(()=>null);
-  let width, height, drawSource;
-  if(bitmap){
-    width=bitmap.width; height=bitmap.height; drawSource=bitmap;
-  }else{
-    const img=await new Promise((resolve,reject)=>{
-      const url=URL.createObjectURL(file), im=new Image();
-      im.onload=()=>{URL.revokeObjectURL(url);resolve(im)};
-      im.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("Image could not be read."))};
-      im.src=url;
-    });
-    width=img.naturalWidth; height=img.naturalHeight; drawSource=img;
-  }
-  const scale=Math.min(1,maxSide/Math.max(width,height));
-  const canvas=document.createElement("canvas");
-  canvas.width=Math.max(1,Math.round(width*scale));
-  canvas.height=Math.max(1,Math.round(height*scale));
-  const ctx=canvas.getContext("2d",{alpha:false});
-  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality="high";
-  ctx.drawImage(drawSource,0,0,canvas.width,canvas.height);
-  if(bitmap) bitmap.close();
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",quality));
-  if(!blob) throw new Error("WebP compression failed.");
-  return new File([blob],`${Date.now()}-${crypto.randomUUID?.()||Math.random().toString(36).slice(2)}.webp`,{type:"image/webp"});
-}
-
-async function makeImagePreview(file){
-  if(!file)return;
-  try{
-    const small=await compressImage(file,900,0.72);
-    const url=URL.createObjectURL(small);
-    $("imagePreview").innerHTML=`<img src="${url}" alt="Selected image">`;
-  }catch{
-    const r=new FileReader();
-    r.onload=()=>$("imagePreview").innerHTML=`<img src="${r.result}" alt="Selected image">`;
-    r.readAsDataURL(file);
-  }
-}
-
-async function uploadPromptImage(file,promptId){
-  const full=await compressImage(file,1600,0.78);
-  const thumb=await compressImage(file,640,0.70);
-  const stamp=Date.now();
-  const fullRef=ref(storage,`users/${user.uid}/prompts/${promptId}/${stamp}-full.webp`);
-  const thumbRef=ref(storage,`users/${user.uid}/prompts/${promptId}/${stamp}-thumb.webp`);
-  await Promise.all([
-    uploadBytes(fullRef,full,{contentType:"image/webp",cacheControl:"public,max-age=31536000,immutable"}),
-    uploadBytes(thumbRef,thumb,{contentType:"image/webp",cacheControl:"public,max-age=31536000,immutable"})
-  ]);
-  const [imageUrl,imageThumbUrl]=await Promise.all([getDownloadURL(fullRef),getDownloadURL(thumbRef)]);
-  return {imageUrl,imageThumbUrl};
+// স্মার্ট ইমেজ কম্প্রেসর (Firestore 1MB সেফ: সাইজ নামিয়ে ৬০-৮০ KB করা)
+function compressImageToBase64(file, maxSide=600, quality=0.6){
+  return new Promise((resolve, reject) => {
+    if(!file) return resolve(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width, height = img.height;
+        if(width > height && width > maxSide){
+          height = Math.round((height * maxSide) / width);
+          width = maxSide;
+        } else if(height > maxSide){
+          width = Math.round((width * maxSide) / height);
+          height = maxSide;
+        }
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext("2d", {alpha: false});
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // JPEG/WebP ফরম্যাটে Base64 তৈরি
+        const base64 = canvas.toDataURL("image/jpeg", quality);
+        resolve(base64);
+      };
+      img.onerror = () => reject(new Error("Image decoding failed"));
+      img.src = e.target.result;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
 }
 
 function openPrompt(id=null){
   $("promptForm").reset();$("promptId").value=id||"";
   $("promptModalTitle").textContent=id?"Edit prompt":"New prompt";
   $("imagePreview").innerHTML="<span>▧</span><small>Reference image</small>";
+  currentCompressedBase64 = null;
+
   if(id){
     const p=prompts.find(x=>x.id===id);
     if(!p)return;
-    $("promptTitle").value=p.title||"";$("promptCategory").value=p.categoryId||categories[0]?.id||"";
-    $("promptTags").value=(p.tags||[]).join(", ");$("promptText").value=p.text||"";
-    $("negativeText").value=p.negative||"";$("promptNotes").value=p.notes||"";$("promptModel").value=p.model||"";$("promptRatio").value=p.ratio||"";
-    if(p.imageUrl)$("imagePreview").innerHTML=`<img src="${escAttr(p.imageUrl)}" alt="">`;
+    $("promptTitle").value=p.title\vert{}\vert{}"";$("promptCategory").value=p.categoryId||categories[0]?.id||"";
+    $("promptTags").value=(p.tags\vert{}\vert{}[]).join(", ");$("promptText").value=p.text||"";
+    $("negativeText").value=p.negative\vert{}\vert{}"";$("promptNotes").value=p.notes||"";$("promptModel").value=p.model\vert{}\vert{}"";$("promptRatio").value=p.ratio||"";
+    if(p.imageUrl || p.imageThumbUrl){
+      $("imagePreview").innerHTML=`<img src="${escAttr(p.imageUrl||p.imageThumbUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+      currentCompressedBase64 = p.imageUrl || p.imageThumbUrl;
+    }
   }else if(categories[0])$("promptCategory").value=categories[0].id;
   $("promptModal").classList.remove("hidden");
 }
+
+$("promptImage").onchange = async e => {
+  const f = e.target.files[0];
+  if(f) {
+    try {
+      currentCompressedBase64 = await compressImageToBase64(f, 600, 0.6);
+      $("imagePreview").innerHTML = `<img src="${currentCompressedBase64}" alt="Selected image" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+    } catch(err) {
+      console.error(err);
+      toast("Could not process image.", "error");
+    }
+  }
+};
+
 $("promptForm").onsubmit=async e=>{
   e.preventDefault();
   const id=$("promptId").value;
-  const file=$("promptImage").files[0];
   const base={
     title:$("promptTitle").value.trim(),categoryId:$("promptCategory").value,tags:$("promptTags").value.split(",").map(x=>x.trim()).filter(Boolean),
     text:$("promptText").value.trim(),negative:$("negativeText").value.trim(),notes:$("promptNotes").value.trim(),
     model:$("promptModel").value.trim(),ratio:$("promptRatio").value.trim(),updatedAt:serverTimestamp()
   };
-  const localImageUrl=file?URL.createObjectURL(file):null;
+
+  if(currentCompressedBase64){
+    base.imageUrl = currentCompressedBase64;
+    base.imageThumbUrl = currentCompressedBase64;
+  }
+
   try{
     if(id){
       const old=prompts.find(p=>p.id===id);
       if(!old)throw new Error("Prompt not found");
-      if(file){
-        base.imageUrl=localImageUrl;
-        base.imageThumbUrl=localImageUrl;
-      }else if(old.imageUrl){
-        base.imageUrl=old.imageUrl;
-        base.imageThumbUrl=old.imageThumbUrl||old.imageUrl;
-      }
-      // Save text/metadata immediately; image upload continues in background.
-      await updateDoc(doc(db,"users",user.uid,"prompts",id),{...base,...(file?{imageUrl:localImageUrl,imageThumbUrl:localImageUrl}:{})});
+      await updateDoc(doc(db,"users",user.uid,"prompts",id),base);
       Object.assign(old,base);
-      closeModal("promptModal"); renderAll(); toast(file?"Prompt saved — uploading image…":"Prompt updated.");
-      if(file){
-        (async()=>{
-          try{
-            const uploaded=await uploadPromptImage(file,id);
-            await updateDoc(doc(db,"users",user.uid,"prompts",id),uploaded);
-            Object.assign(old,uploaded); renderAll(); toast("Image uploaded and optimized.");
-          }catch(err){console.error(err);toast("Prompt saved, but image upload failed. Try editing the prompt and uploading again.","error");}
-          finally{if(localImageUrl)URL.revokeObjectURL(localImageUrl);}
-        })();
-      }
+      closeModal("promptModal"); renderAll(); toast("Prompt updated successfully.");
     }else{
       base.favorite=false;base.copyCount=0;base.createdAt=serverTimestamp();
-      if(file){base.imageUrl=localImageUrl;base.imageThumbUrl=localImageUrl;}
       const newDoc=await addDoc(collection(db,"users",user.uid,"prompts"),base);
       const localPrompt={id:newDoc.id,...base,createdAt:new Date()};
       prompts.unshift(localPrompt);
-      closeModal("promptModal"); renderAll(); toast(file?"Prompt saved — uploading image…":"Prompt saved.");
-      if(file){
-        (async()=>{
-          try{
-            const uploaded=await uploadPromptImage(file,newDoc.id);
-            await updateDoc(newDoc,uploaded);
-            Object.assign(localPrompt,uploaded); renderAll(); toast("Image uploaded and optimized.");
-          }catch(err){console.error(err);toast("Prompt saved, but image upload failed. Try editing the prompt and uploading again.","error");}
-          finally{if(localImageUrl)URL.revokeObjectURL(localImageUrl);}
-        })();
-      }
+      closeModal("promptModal"); renderAll(); toast("Prompt saved successfully.");
     }
   }catch(err){
-    if(localImageUrl)URL.revokeObjectURL(localImageUrl);
-    console.error(err);toast("Could not save prompt. Check Firebase setup.","error");
+    console.error(err);toast("Could not save prompt. Check Firestore connection.","error");
   }
-};
-
-$("promptImage").onchange=e=>{
-  const f=e.target.files[0];
-  if(f) makeImagePreview(f);
 };
 
 async function deletePrompt(id){
@@ -356,12 +334,15 @@ function renderNotes(){
   if(!currentNoteId&&notes[0])selectNote(notes[0].id);
   if(!notes.length){$("noteTitle").value="";$("noteBody").value="";$("noteStatus").textContent="No notes yet";}
 }
+
 function selectNote(id){
-  const n=notes.find(x=>x.id===id);if(!n)return;currentNoteId=id;$("noteTitle").value=n.title||"";$("noteBody").value=n.body||"";$("noteStatus").textContent="Saved";renderNotesListOnly();
+  const n=notes.find(x=>x.id===id);if(!n)return;currentNoteId=id;$("noteTitle").value=n.title||"";$("noteBody").value=n.body\vert{}\vert{}"";$("noteStatus").textContent="Saved";renderNotesListOnly();
 }
+
 function renderNotesListOnly(){
   $("notesList").querySelectorAll(".note-item").forEach(b=>b.classList.toggle("active",b.dataset.id===currentNoteId));
 }
+
 async function saveNote(){
   const title=$("noteTitle").value.trim()||"Untitled note",body=$("noteBody").value;
   if(!title&& !body)return;
@@ -376,6 +357,7 @@ async function saveNote(){
     $("noteStatus").textContent="Saved just now";renderNotes();
   }catch(err){toast("Could not save note.","error");}
 }
+
 $("saveNoteBtn").onclick=saveNote;
 $("newNoteBtn").onclick=()=>{activeView="notes";setView("notes");currentNoteId=null;$("noteTitle").value="";$("noteBody").value="";$("noteStatus").textContent="New note";};
 $("noteToPrompt").onclick=()=>{openPrompt();$("promptTitle").value=$("noteTitle").value;$("promptText").value=$("noteBody").value;};
