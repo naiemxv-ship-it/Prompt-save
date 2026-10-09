@@ -1,8 +1,9 @@
-import { auth, db } from "./firebase.js";
+import {
+  auth, db, storage, setPersistence, browserLocalPersistence, browserSessionPersistence
+} from "./firebase.js";
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, sendPasswordResetEmail, updateProfile,
-  setPersistence, browserLocalPersistence, browserSessionPersistence
+  onAuthStateChanged, sendPasswordResetEmail, updateProfile
 } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 import {
   collection, doc, addDoc, setDoc, getDocs, getDoc, updateDoc, deleteDoc,
@@ -13,7 +14,7 @@ const $ = id => document.getElementById(id);
 const qsa = s => [...document.querySelectorAll(s)];
 let user = null, prompts = [], categories = [], notes = [], currentNoteId = null;
 let activeView = "dashboard", activeCategory = "", favoritesOnly = false, listMode = false;
-let currentCompressedBase64 = null;
+let currentCompressedImage = null;
 
 const defaultCategories = [
   ["Characters","purple"],["Backgrounds","blue"],["Animation","orange"],["Horror","red"],["Stock","green"],["YouTube","orange"]
@@ -51,14 +52,18 @@ $("showLogin").onclick=()=>showAuth("login");
 
 $("loginForm").onsubmit=async e=>{
   e.preventDefault();
-  const email = $("loginEmail").value.trim();
-  const pass = $("loginPassword").value;
   try{
-    if(setPersistence && browserLocalPersistence){
-      await setPersistence(auth, $("rememberMe")?.checked ? browserLocalPersistence : browserSessionPersistence).catch(()=>{});
-    }
-    await signInWithEmailAndPassword(auth, email, pass);
-  }catch(err){toast(friendlyError(err),"error");}
+    const submitBtn = e.target.querySelector("button[type='submit']");
+    if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Signing in..."; }
+    
+    await setPersistence(auth,$("rememberMe").checked?browserLocalPersistence:browserSessionPersistence).catch(()=>{});
+    await signInWithEmailAndPassword(auth,$("loginEmail").value.trim(),$("loginPassword").value);
+  }catch(err){
+    toast(friendlyError(err),"error");
+  }finally{
+    const submitBtn = e.target.querySelector("button[type='submit']");
+    if(submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Sign in"; }
+  }
 };
 
 $("registerForm").onsubmit=async e=>{
@@ -120,33 +125,28 @@ function renderUser(){
 }
 
 function renderAll(){renderCategories();renderStats();renderDashboard();renderLibrary();renderNotes();fillCategorySelects();}
-
 function renderCategories(){
   const nav=$("categoryNav");
   nav.innerHTML=categories.map(c=>`<button class="category-nav" data-cat="${escAttr(c.id)}"><i class="dot ${c.color||"orange"}"></i><span>${escapeHTML(c.name)}</span><em>${prompts.filter(p=>p.categoryId===c.id).length}</em></button>`).join("");
   nav.querySelectorAll(".category-nav").forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;activeView="prompts";setView("prompts");});
 }
-
 function renderStats(){
   $("statPrompts").textContent=prompts.length;
   $("statCategories").textContent=categories.length;
   $("statFavorites").textContent=prompts.filter(p=>p.favorite).length;
   $("statCopied").textContent=prompts.reduce((a,p)=>a+(p.copyCount||0),0);
 }
-
 function renderDashboard(){
   const recent=prompts.slice(0,8); $("recentGrid").innerHTML=recent.map(promptCard).join("");
   $("emptyDashboard").classList.toggle("hidden",prompts.length>0);
   bindCards($("recentGrid"));
 }
-
 function fillCategorySelects(){
   const opts=categories.map(c=>`<option value="${escAttr(c.id)}">${escapeHTML(c.name)}</option>`).join("");
   $("categoryFilter").innerHTML=`<option value="">All categories</option>${opts}`;
   $("promptCategory").innerHTML=opts;
   if(activeCategory)$("categoryFilter").value=activeCategory;
 }
-
 function getFilteredPrompts(){
   let arr=[...prompts], search=$("globalSearch").value.trim().toLowerCase();
   if(activeCategory)arr=arr.filter(p=>p.categoryId===activeCategory);
@@ -158,14 +158,13 @@ function getFilteredPrompts(){
   if(sort==="title")arr.sort((a,b)=>(a.title||"").localeCompare(b.title||""));
   return arr;
 }
-
 function promptCard(p){
   const cat=categories.find(c=>c.id===p.categoryId);
-  const imgUrl = p.imageUrl || p.imageThumbUrl || "";
-  const image = imgUrl
-    ? `<img src="${escAttr(imgUrl)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'image-placeholder\\'><span>✦</span></div>';">`
+  const imgSource = p.imageUrl || p.imageThumbUrl || "";
+  const image = imgSource
+    ? `<img src="${escAttr(imgSource)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'image-placeholder\\'><span>✦</span></div>';">`
     : `<div class="image-placeholder"><span>✦</span></div>`;
-
+  
   return `<article class="prompt-card ${listMode?"list-card":""}" data-id="${p.id}">
     <div class="prompt-image">${image}<button class="star-btn ${p.favorite?"on":""}" data-action="favorite" title="Favorite">★</button></div>
     <div class="prompt-card-body">
@@ -177,7 +176,6 @@ function promptCard(p){
     </div>
   </article>`;
 }
-
 function renderLibrary(){
   const arr=getFilteredPrompts();
   $("libraryGrid").className=`prompt-grid ${listMode?"list-view":""}`;
@@ -186,7 +184,6 @@ function renderLibrary(){
   $("libraryTitle").textContent=activeCategory?(categories.find(c=>c.id===activeCategory)?.name||"Category"):(favoritesOnly?"Favorites":"All prompts");
   bindCards($("libraryGrid"));
 }
-
 function bindCards(container){
   container.querySelectorAll(".prompt-card").forEach(card=>{
     card.onclick=e=>{
@@ -207,7 +204,6 @@ async function toggleFavorite(id){
   await updateDoc(doc(db,"users",user.uid,"prompts",id),{favorite:p.favorite});
   renderAll();toast(p.favorite?"Added to favorites":"Removed from favorites");
 }
-
 async function copyPrompt(id){
   const p=prompts.find(x=>x.id===id);if(!p)return;
   try{
@@ -219,34 +215,28 @@ async function copyPrompt(id){
   }catch{toast("Clipboard permission was blocked.","error");}
 }
 
-function compressImageToBase64(file, maxSide=600, quality=0.6){
-  return new Promise((resolve, reject) => {
-    if(!file) return resolve(null);
+// মোবাইল ও পিসির জন্য লাইটওয়েট Base64 কম্প্রেসর (৬০-৭০ KB নিশ্চিত করে)
+function compressToBase64(file){
+  return new Promise((resolve, reject)=>{
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        let width = img.width, height = img.height;
-        if(width > height && width > maxSide){
-          height = Math.round((height * maxSide) / width);
-          width = maxSide;
-        } else if(height > maxSide){
-          width = Math.round((width * maxSide) / height);
-          height = maxSide;
-        }
-        canvas.width = Math.max(1, width);
-        canvas.height = Math.max(1, height);
-        const ctx = canvas.getContext("2d", {alpha: false});
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        const maxDim = 600;
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim){ h = Math.round((h * maxDim) / w); w = maxDim; }
+        else if(h > maxDim){ w = Math.round((w * maxDim) / h); h = maxDim; }
+        canvas.width = Math.max(1, w);
+        canvas.height = Math.max(1, h);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.6));
       };
-      img.onerror = () => reject(new Error("Image decoding failed"));
+      img.onerror = () => reject(new Error("Image decode failed"));
       img.src = e.target.result;
     };
-    reader.onerror = (err) => reject(err);
+    reader.onerror = err => reject(err);
     reader.readAsDataURL(file);
   });
 }
@@ -255,7 +245,7 @@ function openPrompt(id=null){
   $("promptForm").reset();$("promptId").value=id||"";
   $("promptModalTitle").textContent=id?"Edit prompt":"New prompt";
   $("imagePreview").innerHTML="<span>▧</span><small>Reference image</small>";
-  currentCompressedBase64 = null;
+  currentCompressedImage = null;
 
   if(id){
     const p=prompts.find(x=>x.id===id);
@@ -264,21 +254,21 @@ function openPrompt(id=null){
     $("promptTags").value=(p.tags\vert{}\vert{}[]).join(", ");$("promptText").value=p.text||"";
     $("negativeText").value=p.negative\vert{}\vert{}"";$("promptNotes").value=p.notes||"";$("promptModel").value=p.model\vert{}\vert{}"";$("promptRatio").value=p.ratio||"";
     if(p.imageUrl || p.imageThumbUrl){
-      $("imagePreview").innerHTML=`<img src="${escAttr(p.imageUrl||p.imageThumbUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
-      currentCompressedBase64 = p.imageUrl || p.imageThumbUrl;
+      const src = p.imageUrl || p.imageThumbUrl;
+      $("imagePreview").innerHTML=`<img src="${escAttr(src)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+      currentCompressedImage = src;
     }
   }else if(categories[0])$("promptCategory").value=categories[0].id;
   $("promptModal").classList.remove("hidden");
 }
 
 $("promptImage").onchange = async e => {
-  const f = e.target.files[0];
-  if(f) {
-    try {
-      currentCompressedBase64 = await compressImageToBase64(f, 600, 0.6);
-      $("imagePreview").innerHTML = `<img src="${currentCompressedBase64}" alt="Selected image" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
-    } catch(err) {
-      console.error(err);
+  const file = e.target.files[0];
+  if(file){
+    try{
+      currentCompressedImage = await compressToBase64(file);
+      $("imagePreview").innerHTML = `<img src="${currentCompressedImage}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+    }catch(err){
       toast("Could not process image.", "error");
     }
   }
@@ -293,9 +283,9 @@ $("promptForm").onsubmit=async e=>{
     model:$("promptModel").value.trim(),ratio:$("promptRatio").value.trim(),updatedAt:serverTimestamp()
   };
 
-  if(currentCompressedBase64){
-    base.imageUrl = currentCompressedBase64;
-    base.imageThumbUrl = currentCompressedBase64;
+  if(currentCompressedImage){
+    base.imageUrl = currentCompressedImage;
+    base.imageThumbUrl = currentCompressedImage;
   }
 
   try{
@@ -304,16 +294,16 @@ $("promptForm").onsubmit=async e=>{
       if(!old)throw new Error("Prompt not found");
       await updateDoc(doc(db,"users",user.uid,"prompts",id),base);
       Object.assign(old,base);
-      closeModal("promptModal"); renderAll(); toast("Prompt updated successfully.");
+      closeModal("promptModal"); renderAll(); toast("Prompt updated.");
     }else{
       base.favorite=false;base.copyCount=0;base.createdAt=serverTimestamp();
       const newDoc=await addDoc(collection(db,"users",user.uid,"prompts"),base);
       const localPrompt={id:newDoc.id,...base,createdAt:new Date()};
       prompts.unshift(localPrompt);
-      closeModal("promptModal"); renderAll(); toast("Prompt saved successfully.");
+      closeModal("promptModal"); renderAll(); toast("Prompt saved.");
     }
   }catch(err){
-    console.error(err);toast("Could not save prompt. Check Firestore connection.","error");
+    console.error(err);toast("Could not save prompt. Check connection.","error");
   }
 };
 
@@ -332,15 +322,12 @@ function renderNotes(){
   if(!currentNoteId&&notes[0])selectNote(notes[0].id);
   if(!notes.length){$("noteTitle").value="";$("noteBody").value="";$("noteStatus").textContent="No notes yet";}
 }
-
 function selectNote(id){
   const n=notes.find(x=>x.id===id);if(!n)return;currentNoteId=id;$("noteTitle").value=n.title||"";$("noteBody").value=n.body\vert{}\vert{}"";$("noteStatus").textContent="Saved";renderNotesListOnly();
 }
-
 function renderNotesListOnly(){
   $("notesList").querySelectorAll(".note-item").forEach(b=>b.classList.toggle("active",b.dataset.id===currentNoteId));
 }
-
 async function saveNote(){
   const title=$("noteTitle").value.trim()||"Untitled note",body=$("noteBody").value;
   if(!title&& !body)return;
@@ -355,7 +342,6 @@ async function saveNote(){
     $("noteStatus").textContent="Saved just now";renderNotes();
   }catch(err){toast("Could not save note.","error");}
 }
-
 $("saveNoteBtn").onclick=saveNote;
 $("newNoteBtn").onclick=()=>{activeView="notes";setView("notes");currentNoteId=null;$("noteTitle").value="";$("noteBody").value="";$("noteStatus").textContent="New note";};
 $("noteToPrompt").onclick=()=>{openPrompt();$("promptTitle").value=$("noteTitle").value;$("promptText").value=$("noteBody").value;};
@@ -444,5 +430,3 @@ document.addEventListener("keydown",e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="n"){e.preventDefault();openPrompt();}
   if(e.key==="Escape"){qsa(".modal:not(.hidden)").forEach(m=>m.classList.add("hidden"));$("profileMenu").classList.add("hidden");}
 });
-
-showAuth("login");
