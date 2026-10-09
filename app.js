@@ -7,14 +7,19 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 import {
   collection, doc, addDoc, setDoc, getDocs, getDoc, updateDoc, deleteDoc,
-  query, orderBy, serverTimestamp
+  query, orderBy, serverTimestamp, deleteField
 } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+import {
+  ref, deleteObject
+} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-storage.js";
 
 const $ = id => document.getElementById(id);
 const qsa = s => [...document.querySelectorAll(s)];
 let user = null, prompts = [], categories = [], notes = [], currentNoteId = null;
 let activeView = "dashboard", activeCategory = "", favoritesOnly = false, listMode = false;
-let currentCompressedImage = null;
+let currentImageFile = null, currentAsciiArt = "", currentAsciiSettings = {
+  width: 72, brightness: 0, contrast: 100, charset: "detailed", invert: false
+};
 
 const defaultCategories = [
   ["Characters","purple"],["Backgrounds","blue"],["Animation","orange"],["Horror","red"],["Stock","green"],["YouTube","orange"]
@@ -52,16 +57,10 @@ $("showLogin").onclick=()=>showAuth("login");
 
 $("loginForm").onsubmit=async e=>{
   e.preventDefault();
-  const submitBtn = e.target.querySelector("button[type='submit']");
-  if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Signing in..."; }
   try{
-    await setPersistence(auth,$("rememberMe").checked?browserLocalPersistence:browserSessionPersistence).catch(()=>{});
+    await setPersistence(auth,$("rememberMe").checked?browserLocalPersistence:browserSessionPersistence);
     await signInWithEmailAndPassword(auth,$("loginEmail").value.trim(),$("loginPassword").value);
-  }catch(err){
-    toast(friendlyError(err),"error");
-  }finally{
-    if(submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Sign in"; }
-  }
+  }catch(err){toast(friendlyError(err),"error");}
 };
 
 $("registerForm").onsubmit=async e=>{
@@ -123,33 +122,28 @@ function renderUser(){
 }
 
 function renderAll(){renderCategories();renderStats();renderDashboard();renderLibrary();renderNotes();fillCategorySelects();}
-
 function renderCategories(){
   const nav=$("categoryNav");
   nav.innerHTML=categories.map(c=>`<button class="category-nav" data-cat="${escAttr(c.id)}"><i class="dot ${c.color||"orange"}"></i><span>${escapeHTML(c.name)}</span><em>${prompts.filter(p=>p.categoryId===c.id).length}</em></button>`).join("");
   nav.querySelectorAll(".category-nav").forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;activeView="prompts";setView("prompts");});
 }
-
 function renderStats(){
   $("statPrompts").textContent=prompts.length;
   $("statCategories").textContent=categories.length;
   $("statFavorites").textContent=prompts.filter(p=>p.favorite).length;
   $("statCopied").textContent=prompts.reduce((a,p)=>a+(p.copyCount||0),0);
 }
-
 function renderDashboard(){
   const recent=prompts.slice(0,8); $("recentGrid").innerHTML=recent.map(promptCard).join("");
   $("emptyDashboard").classList.toggle("hidden",prompts.length>0);
   bindCards($("recentGrid"));
 }
-
 function fillCategorySelects(){
   const opts=categories.map(c=>`<option value="${escAttr(c.id)}">${escapeHTML(c.name)}</option>`).join("");
   $("categoryFilter").innerHTML=`<option value="">All categories</option>${opts}`;
   $("promptCategory").innerHTML=opts;
   if(activeCategory)$("categoryFilter").value=activeCategory;
 }
-
 function getFilteredPrompts(){
   let arr=[...prompts], search=$("globalSearch").value.trim().toLowerCase();
   if(activeCategory)arr=arr.filter(p=>p.categoryId===activeCategory);
@@ -161,15 +155,13 @@ function getFilteredPrompts(){
   if(sort==="title")arr.sort((a,b)=>(a.title||"").localeCompare(b.title||""));
   return arr;
 }
-
-// কার্ডে ছবি লোড হওয়ার ফাংশন
 function promptCard(p){
   const cat=categories.find(c=>c.id===p.categoryId);
-  const imgSource = p.imageUrl || p.imageThumbUrl || "";
-  const image = imgSource
-    ? `<img src="${escAttr(imgSource)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'image-placeholder\\'><span>✦</span></div>';">`
-    : `<div class="image-placeholder"><span>✦</span></div>`;
-
+  const image=p.asciiArt
+    ? `<pre class="ascii-card-art" aria-label="ASCII art preview">${escapeHTML(p.asciiArt)}</pre>`
+    : ((p.imageThumbUrl||p.imageUrl)
+      ? `<img src="${escAttr(p.imageThumbUrl||p.imageUrl)}" alt="Legacy reference image" loading="lazy" decoding="async">`
+      : `<div class="image-placeholder"><span>ASCII</span></div>`);
   return `<article class="prompt-card ${listMode?"list-card":""}" data-id="${p.id}">
     <div class="prompt-image">${image}<button class="star-btn ${p.favorite?"on":""}" data-action="favorite" title="Favorite">★</button></div>
     <div class="prompt-card-body">
@@ -181,7 +173,6 @@ function promptCard(p){
     </div>
   </article>`;
 }
-
 function renderLibrary(){
   const arr=getFilteredPrompts();
   $("libraryGrid").className=`prompt-grid ${listMode?"list-view":""}`;
@@ -190,7 +181,6 @@ function renderLibrary(){
   $("libraryTitle").textContent=activeCategory?(categories.find(c=>c.id===activeCategory)?.name||"Category"):(favoritesOnly?"Favorites":"All prompts");
   bindCards($("libraryGrid"));
 }
-
 function bindCards(container){
   container.querySelectorAll(".prompt-card").forEach(card=>{
     card.onclick=e=>{
@@ -211,7 +201,6 @@ async function toggleFavorite(id){
   await updateDoc(doc(db,"users",user.uid,"prompts",id),{favorite:p.favorite});
   renderAll();toast(p.favorite?"Added to favorites":"Removed from favorites");
 }
-
 async function copyPrompt(id){
   const p=prompts.find(x=>x.id===id);if(!p)return;
   try{
@@ -223,124 +212,226 @@ async function copyPrompt(id){
   }catch{toast("Clipboard permission was blocked.","error");}
 }
 
-// ছবি ৫০-৭০ KB-তে কম্প্রেস করে Base64 বানানোর ফাংশন
-function compressToBase64(file){
-  return new Promise((resolve, reject)=>{
-    if(!file) return resolve(null);
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxDim = 600;
-        let w = img.width, h = img.height;
-        if(w > h && w > maxDim){ 
-          h = Math.round((h * maxDim) / w); 
-          w = maxDim; 
-        } else if(h > maxDim){ 
-          w = Math.round((w * maxDim) / h); 
-          h = maxDim; 
-        }
-        canvas.width = Math.max(1, w);
-        canvas.height = Math.max(1, h);
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.65));
-      };
-      img.onerror = () => reject(new Error("Image decode failed"));
-      img.src = e.target.result;
-    };
-    reader.onerror = err => reject(err);
-    reader.readAsDataURL(file);
-  });
+
+// Image-to-ASCII pipeline. Original files are processed locally in the browser.
+// Only the resulting ASCII text/settings are saved to Firestore; image files are never uploaded.
+const ASCII_CHARSETS = {
+  simple: "@%#*+=-:. ",
+  classic: "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~i!lI;:,\"^`'. ",
+  blocks: "█▓▒░ ",
+  detailed: "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~i!lI;:,\"^`'. "
+};
+
+function readAsciiSettings(){
+  return {
+    width: Number($("asciiWidth").value || 72),
+    brightness: Number($("asciiBrightness").value || 0),
+    contrast: Number($("asciiContrast").value || 100),
+    charset: $("asciiCharset").value || "detailed",
+    invert: $("asciiInvert").checked
+  };
+}
+
+function renderAsciiPreview(art){
+  currentAsciiArt = art || "";
+  const preview = $("imagePreview");
+  preview.innerHTML = currentAsciiArt
+    ? `<pre class="ascii-preview">${escapeHTML(currentAsciiArt)}</pre>`
+    : `<div class="ascii-empty"><span>▦</span><small>ASCII preview appears here</small></div>`;
+}
+
+async function imageFileToAscii(file, settings){
+  if(!file) return "";
+  let bitmap = null;
+  try {
+    bitmap = await createImageBitmap(file, {imageOrientation:"from-image"});
+  } catch {}
+  let source, width, height;
+  if(bitmap){
+    source = bitmap; width = bitmap.width; height = bitmap.height;
+  } else {
+    const localUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve,reject)=>{
+        const im = new Image();
+        im.onload = ()=>resolve(im);
+        im.onerror = ()=>reject(new Error("The selected image could not be read."));
+        im.src = localUrl;
+      });
+      source = img; width = img.naturalWidth; height = img.naturalHeight;
+    } finally {
+      URL.revokeObjectURL(localUrl);
+    }
+  }
+  const cols = Math.max(24, Math.min(120, Number(settings.width) || 72));
+  // Monospace glyphs are taller than they are wide; 0.48 compensates for their aspect ratio.
+  const rows = Math.max(8, Math.min(100, Math.round((height / Math.max(1,width)) * cols * 0.48)));
+  const canvas = document.createElement("canvas");
+  canvas.width = cols; canvas.height = rows;
+  const ctx = canvas.getContext("2d", {willReadFrequently:true});
+  ctx.fillStyle = "#fff"; ctx.fillRect(0,0,cols,rows);
+  ctx.drawImage(source,0,0,cols,rows);
+  if(bitmap) bitmap.close();
+  const pixels = ctx.getImageData(0,0,cols,rows).data;
+  const chars = ASCII_CHARSETS[settings.charset] || ASCII_CHARSETS.detailed;
+  const lines = [];
+  const contrast = Math.max(0.2, Math.min(2, (Number(settings.contrast)||100)/100));
+  const brightness = (Number(settings.brightness)||0) * 2.55;
+  for(let y=0; y<rows; y++){
+    let line = "";
+    for(let x=0; x<cols; x++){
+      const i=(y*cols+x)*4;
+      let gray = 0.2126*pixels[i] + 0.7152*pixels[i+1] + 0.0722*pixels[i+2];
+      // Composite transparent pixels onto white to avoid black transparency artifacts.
+      const alpha = pixels[i+3]/255;
+      gray = gray*alpha + 255*(1-alpha);
+      gray = Math.max(0,Math.min(255,(gray-128)*contrast+128+brightness));
+      if(settings.invert) gray=255-gray;
+      const idx=Math.max(0,Math.min(chars.length-1,Math.round((gray/255)*(chars.length-1))));
+      line += chars[idx];
+    }
+    lines.push(line.replace(/\s+$/,""));
+  }
+  return lines.join("\n");
+}
+
+let asciiRenderToken = 0;
+async function refreshAsciiFromSelectedFile(){
+  if(!currentImageFile) return;
+  const token=++asciiRenderToken;
+  const settings=readAsciiSettings();
+  currentAsciiSettings=settings;
+  $("asciiStatus").textContent="Converting locally…";
+  try{
+    const art=await imageFileToAscii(currentImageFile,settings);
+    if(token!==asciiRenderToken)return;
+    renderAsciiPreview(art);
+    $("asciiStatus").textContent=`Preview ready · ${settings.width} columns · saved as text only`;
+  }catch(err){
+    console.error(err);
+    $("asciiStatus").textContent="Could not convert this image.";
+    toast("Could not convert the selected image.","error");
+  }
+}
+
+function setAsciiControls(settings={}){
+  const s={...{width:72,brightness:0,contrast:100,charset:"detailed",invert:false},...settings};
+  $("asciiWidth").value=s.width;
+  $("asciiBrightness").value=s.brightness;
+  $("asciiContrast").value=s.contrast;
+  $("asciiCharset").value=s.charset;
+  $("asciiInvert").checked=!!s.invert;
+  $("asciiWidthValue").textContent=s.width;
+  $("asciiBrightnessValue").textContent=s.brightness;
+  $("asciiContrastValue").textContent=s.contrast;
+  currentAsciiSettings=s;
+}
+
+function clearAsciiEditor(){
+  currentImageFile=null;
+  currentAsciiArt="";
+  setAsciiControls();
+  $("promptImage").value="";
+  $("asciiStatus").textContent="Choose an image to create an ASCII preview.";
+  renderAsciiPreview("");
+}
+
+async function deleteLegacyImageFiles(urls=[]){
+  const unique=[...new Set(urls.filter(u=>typeof u==="string" && u.startsWith("https://")))];
+  await Promise.allSettled(unique.map(url=>deleteObject(ref(storage,url))));
 }
 
 function openPrompt(id=null){
   $("promptForm").reset();$("promptId").value=id||"";
   $("promptModalTitle").textContent=id?"Edit prompt":"New prompt";
-  $("imagePreview").innerHTML="<span>▧</span><small>Reference image</small>";
-  currentCompressedImage = null;
-
+  clearAsciiEditor();
   if(id){
     const p=prompts.find(x=>x.id===id);
     if(!p)return;
-    $("promptTitle").value=p.title\vert{}\vert{}"";$("promptCategory").value=p.categoryId||categories[0]?.id||"";
-    $("promptTags").value=(p.tags\vert{}\vert{}[]).join(", ");$("promptText").value=p.text||"";
-    $("negativeText").value=p.negative\vert{}\vert{}"";$("promptNotes").value=p.notes||"";$("promptModel").value=p.model\vert{}\vert{}"";$("promptRatio").value=p.ratio||"";
-    if(p.imageUrl || p.imageThumbUrl){
-      const src = p.imageUrl || p.imageThumbUrl;
-      $("imagePreview").innerHTML=`<img src="${escAttr(src)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
-      currentCompressedImage = src;
+    $("promptTitle").value=p.title||"";$("promptCategory").value=p.categoryId||categories[0]?.id||"";
+    $("promptTags").value=(p.tags||[]).join(", ");$("promptText").value=p.text||"";
+    $("negativeText").value=p.negative||"";$("promptNotes").value=p.notes||"";$("promptModel").value=p.model||"";$("promptRatio").value=p.ratio||"";
+    if(p.asciiArt){
+      currentAsciiArt=p.asciiArt;
+      setAsciiControls(p.asciiSettings||{});
+      renderAsciiPreview(p.asciiArt);
+      $("asciiStatus").textContent="Saved ASCII text · select a new image to replace it";
+    } else if(p.imageUrl){
+      $("imagePreview").innerHTML=`<img class="legacy-image-preview" src="${escAttr(p.imageUrl)}" alt="Legacy image preview">`;
+      $("asciiStatus").textContent="Legacy image found. Select it again to convert to ASCII and stop using image storage.";
     }
   }else if(categories[0])$("promptCategory").value=categories[0].id;
   $("promptModal").classList.remove("hidden");
 }
 
-$("promptImage").onchange = async e => {
-  const file = e.target.files[0];
-  if(file){
-    try{
-      currentCompressedImage = await compressToBase64(file);
-      $("imagePreview").innerHTML = `<img src="${currentCompressedImage}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
-    }catch(err){
-      toast("Could not process image.", "error");
-    }
-  }
-};
-
 $("promptForm").onsubmit=async e=>{
   e.preventDefault();
   const id=$("promptId").value;
-  const fileInput = $("promptImage");
-  const file = fileInput.files ? fileInput.files[0] : null;
-
-  const submitBtn = e.target.querySelector("button[type='submit']");
-  if(submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Saving image...";
+  const old=id?prompts.find(p=>p.id===id):null;
+  const settings=readAsciiSettings();
+  if(currentImageFile && !currentAsciiArt){
+    return toast("Please wait for the ASCII preview to finish.","error");
   }
-
+  const base={
+    title:$("promptTitle").value.trim(),categoryId:$("promptCategory").value,
+    tags:$("promptTags").value.split(",").map(x=>x.trim()).filter(Boolean),
+    text:$("promptText").value.trim(),negative:$("negativeText").value.trim(),notes:$("promptNotes").value.trim(),
+    model:$("promptModel").value.trim(),ratio:$("promptRatio").value.trim(),updatedAt:serverTimestamp()
+  };
+  if(currentAsciiArt){
+    base.asciiArt=currentAsciiArt;
+    base.asciiSettings=settings;
+  } else if(old?.asciiArt){
+    base.asciiArt=old.asciiArt;
+    base.asciiSettings=old.asciiSettings||settings;
+  }
+  // Clear legacy image URLs from the document when the prompt is converted to ASCII.
+  const shouldRemoveLegacyImages=!!(currentAsciiArt && old && (old.imageUrl||old.imageThumbUrl));
+  if(shouldRemoveLegacyImages){
+    base.imageUrl=deleteField();
+    base.imageThumbUrl=deleteField();
+  }
   try{
-    if(file && !currentCompressedImage){
-      currentCompressedImage = await compressToBase64(file);
-    }
-
-    const base={
-      title:$("promptTitle").value.trim(),categoryId:$("promptCategory").value,tags:$("promptTags").value.split(",").map(x=>x.trim()).filter(Boolean),
-      text:$("promptText").value.trim(),negative:$("negativeText").value.trim(),notes:$("promptNotes").value.trim(),
-      model:$("promptModel").value.trim(),ratio:$("promptRatio").value.trim(),updatedAt:serverTimestamp()
-    };
-
-    if(currentCompressedImage){
-      base.imageUrl = currentCompressedImage;
-      base.imageThumbUrl = currentCompressedImage;
-    }
-
     if(id){
-      const old=prompts.find(p=>p.id===id);
       if(!old)throw new Error("Prompt not found");
       await updateDoc(doc(db,"users",user.uid,"prompts",id),base);
-      Object.assign(old,base);
-      closeModal("promptModal"); renderAll(); toast("Prompt updated.");
+      const localBase={...base};
+      delete localBase.imageUrl; delete localBase.imageThumbUrl;
+      Object.assign(old,localBase);
+      if(shouldRemoveLegacyImages){
+        await deleteLegacyImageFiles([old.imageUrl,old.imageThumbUrl]);
+        delete old.imageUrl; delete old.imageThumbUrl;
+      }
+      closeModal("promptModal");renderAll();toast("Prompt updated. ASCII text saved; no image uploaded.");
     }else{
       base.favorite=false;base.copyCount=0;base.createdAt=serverTimestamp();
       const newDoc=await addDoc(collection(db,"users",user.uid,"prompts"),base);
       const localPrompt={id:newDoc.id,...base,createdAt:new Date()};
       prompts.unshift(localPrompt);
-      closeModal("promptModal"); renderAll(); toast("Prompt saved.");
+      closeModal("promptModal");renderAll();toast(currentAsciiArt?"Prompt saved with ASCII preview only.":"Prompt saved.");
     }
   }catch(err){
-    console.error(err);toast("Could not save prompt. Check connection.","error");
-  }finally{
-    if(submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Save prompt";
-    }
-    currentCompressedImage = null;
+    console.error(err);toast("Could not save prompt. Check Firebase setup and Rules.","error");
   }
 };
+
+$("promptImage").onchange=async e=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  currentImageFile=file;
+  currentAsciiArt="";
+  $("asciiStatus").textContent="Converting image locally…";
+  await refreshAsciiFromSelectedFile();
+};
+["asciiWidth","asciiBrightness","asciiContrast","asciiCharset","asciiInvert"].forEach(id=>{
+  $(id).addEventListener("input",()=>{
+    $("asciiWidthValue").textContent=$("asciiWidth").value;
+    $("asciiBrightnessValue").textContent=$("asciiBrightness").value;
+    $("asciiContrastValue").textContent=$("asciiContrast").value;
+    if(currentImageFile)refreshAsciiFromSelectedFile();
+  });
+});
+$("clearAsciiBtn").onclick=clearAsciiEditor;
 
 async function deletePrompt(id){
   const p=prompts.find(x=>x.id===id);if(!p)return;
@@ -358,7 +449,7 @@ function renderNotes(){
   if(!notes.length){$("noteTitle").value="";$("noteBody").value="";$("noteStatus").textContent="No notes yet";}
 }
 function selectNote(id){
-  const n=notes.find(x=>x.id===id);if(!n)return;currentNoteId=id;$("noteTitle").value=n.title||"";$("noteBody").value=n.body\vert{}\vert{}"";$("noteStatus").textContent="Saved";renderNotesListOnly();
+  const n=notes.find(x=>x.id===id);if(!n)return;currentNoteId=id;$("noteTitle").value=n.title||"";$("noteBody").value=n.body||"";$("noteStatus").textContent="Saved";renderNotesListOnly();
 }
 function renderNotesListOnly(){
   $("notesList").querySelectorAll(".note-item").forEach(b=>b.classList.toggle("active",b.dataset.id===currentNoteId));
@@ -465,3 +556,5 @@ document.addEventListener("keydown",e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="n"){e.preventDefault();openPrompt();}
   if(e.key==="Escape"){qsa(".modal:not(.hidden)").forEach(m=>m.classList.add("hidden"));$("profileMenu").classList.add("hidden");}
 });
+
+showAuth("login");

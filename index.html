@@ -170,10 +170,22 @@
           <label>Category<select id="promptCategory"></select></label>
         </div>
         <label>Tags <input id="promptTags" placeholder="cartoon, character, cinematic"></label>
-        <div class="image-upload">
-          <div id="imagePreview" class="image-preview"><span>▧</span><small>Reference image</small></div>
-          <div><strong>Reference image</strong><p>Optional. JPG, PNG or WebP. Images are automatically compressed to fast WebP thumbnails before upload.</p><input id="promptImage" type="file" accept="image/png,image/jpeg,image/webp"></div>
-        </div>
+        <section class="ascii-editor">
+          <div class="ascii-editor-head">
+            <div><strong>ASCII reference preview</strong><p>Your image is converted in this browser. Only ASCII text and settings are saved to Firebase—your original image is not uploaded.</p></div>
+            <button type="button" id="clearAsciiBtn" class="secondary-btn compact-btn">Clear</button>
+          </div>
+          <label class="file-picker">Choose reference image<input id="promptImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp"></label>
+          <div id="imagePreview" class="image-preview"><div class="ascii-empty"><span>▦</span><small>ASCII preview appears here</small></div></div>
+          <div class="ascii-controls">
+            <label>Detail width <output id="asciiWidthValue">72</output><input id="asciiWidth" type="range" min="32" max="110" value="72" step="4"></label>
+            <label>Brightness <output id="asciiBrightnessValue">0</output><input id="asciiBrightness" type="range" min="-50" max="50" value="0" step="5"></label>
+            <label>Contrast <output id="asciiContrastValue">100</output><input id="asciiContrast" type="range" min="50" max="180" value="100" step="5"></label>
+            <label>Character style<select id="asciiCharset"><option value="detailed">Detailed</option><option value="classic">Classic</option><option value="simple">Simple</option><option value="blocks">Block shades</option></select></label>
+            <label class="ascii-invert"><input id="asciiInvert" type="checkbox"> Invert brightness</label>
+          </div>
+          <small id="asciiStatus" class="ascii-status">Choose an image to create an ASCII preview.</small>
+        </section>
         <label>Prompt<textarea id="promptText" required class="code-area" placeholder="Write your complete generation prompt..."></textarea></label>
         <label>Negative prompt<textarea id="negativeText" class="code-area small" placeholder="Optional negative prompt..."></textarea></label>
         <label>Notes<textarea id="promptNotes" class="small" placeholder="Model, aspect ratio, workflow notes, etc."></textarea></label>

@@ -9,7 +9,9 @@ A responsive personal AI Prompt Workspace built with Firebase Authentication, Fi
 - Remember-me / session persistence
 - User-specific private data
 - Prompt CRUD
-- Prompt reference image upload
+- Local image-to-ASCII conversion (original image stays in the browser)
+- ASCII preview controls: width/detail, brightness, contrast, character set, invert
+- Only ASCII text/settings are stored in Firestore; no new source-image uploads to Firebase Storage
 - Categories and custom categories
 - Tags
 - Favorites
@@ -61,9 +63,10 @@ The Firebase web API key is not a password. The important protection is Firebase
 For production, consider adding App Check, email verification, rate limits, stronger validation, and a privacy/terms page.
 
 
-## Image-first upload optimization
-- Uploaded images are compressed in the browser to WebP before Firebase Storage upload.
-- A smaller 640px thumbnail is stored for fast library/card loading.
-- The larger image is capped at 1600px for prompt detail/reference use.
-- Prompt metadata is saved immediately; image upload runs in the background so the UI does not wait.
-- Existing image URLs remain compatible.
+## ASCII-only reference images
+- The original image is processed locally in the browser using Canvas.
+- The app converts the pixels into ASCII characters and shows a live preview.
+- Basic controls: output width/detail, brightness, contrast, character set, and invert.
+- Only the ASCII string and settings are stored in Firestore. New image files are never uploaded to Firebase Storage.
+- The Copy Prompt button copies only the prompt text; ASCII art is not copied.
+- Existing image files previously uploaded to Firebase Storage are not automatically deleted in bulk. When an old prompt is edited and converted to ASCII, its stored image URLs are removed and the old objects are best-effort deleted.
