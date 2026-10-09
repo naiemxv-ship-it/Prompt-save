@@ -52,16 +52,14 @@ $("showLogin").onclick=()=>showAuth("login");
 
 $("loginForm").onsubmit=async e=>{
   e.preventDefault();
+  const submitBtn = e.target.querySelector("button[type='submit']");
+  if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Signing in..."; }
   try{
-    const submitBtn = e.target.querySelector("button[type='submit']");
-    if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Signing in..."; }
-    
     await setPersistence(auth,$("rememberMe").checked?browserLocalPersistence:browserSessionPersistence).catch(()=>{});
     await signInWithEmailAndPassword(auth,$("loginEmail").value.trim(),$("loginPassword").value);
   }catch(err){
     toast(friendlyError(err),"error");
   }finally{
-    const submitBtn = e.target.querySelector("button[type='submit']");
     if(submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Sign in"; }
   }
 };
@@ -125,28 +123,33 @@ function renderUser(){
 }
 
 function renderAll(){renderCategories();renderStats();renderDashboard();renderLibrary();renderNotes();fillCategorySelects();}
+
 function renderCategories(){
   const nav=$("categoryNav");
   nav.innerHTML=categories.map(c=>`<button class="category-nav" data-cat="${escAttr(c.id)}"><i class="dot ${c.color||"orange"}"></i><span>${escapeHTML(c.name)}</span><em>${prompts.filter(p=>p.categoryId===c.id).length}</em></button>`).join("");
   nav.querySelectorAll(".category-nav").forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;activeView="prompts";setView("prompts");});
 }
+
 function renderStats(){
   $("statPrompts").textContent=prompts.length;
   $("statCategories").textContent=categories.length;
   $("statFavorites").textContent=prompts.filter(p=>p.favorite).length;
   $("statCopied").textContent=prompts.reduce((a,p)=>a+(p.copyCount||0),0);
 }
+
 function renderDashboard(){
   const recent=prompts.slice(0,8); $("recentGrid").innerHTML=recent.map(promptCard).join("");
   $("emptyDashboard").classList.toggle("hidden",prompts.length>0);
   bindCards($("recentGrid"));
 }
+
 function fillCategorySelects(){
   const opts=categories.map(c=>`<option value="${escAttr(c.id)}">${escapeHTML(c.name)}</option>`).join("");
   $("categoryFilter").innerHTML=`<option value="">All categories</option>${opts}`;
   $("promptCategory").innerHTML=opts;
   if(activeCategory)$("categoryFilter").value=activeCategory;
 }
+
 function getFilteredPrompts(){
   let arr=[...prompts], search=$("globalSearch").value.trim().toLowerCase();
   if(activeCategory)arr=arr.filter(p=>p.categoryId===activeCategory);
@@ -158,13 +161,15 @@ function getFilteredPrompts(){
   if(sort==="title")arr.sort((a,b)=>(a.title||"").localeCompare(b.title||""));
   return arr;
 }
+
+// কার্ডে ছবি লোড হওয়ার ফাংশন
 function promptCard(p){
   const cat=categories.find(c=>c.id===p.categoryId);
   const imgSource = p.imageUrl || p.imageThumbUrl || "";
   const image = imgSource
     ? `<img src="${escAttr(imgSource)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'image-placeholder\\'><span>✦</span></div>';">`
     : `<div class="image-placeholder"><span>✦</span></div>`;
-  
+
   return `<article class="prompt-card ${listMode?"list-card":""}" data-id="${p.id}">
     <div class="prompt-image">${image}<button class="star-btn ${p.favorite?"on":""}" data-action="favorite" title="Favorite">★</button></div>
     <div class="prompt-card-body">
@@ -176,6 +181,7 @@ function promptCard(p){
     </div>
   </article>`;
 }
+
 function renderLibrary(){
   const arr=getFilteredPrompts();
   $("libraryGrid").className=`prompt-grid ${listMode?"list-view":""}`;
@@ -184,6 +190,7 @@ function renderLibrary(){
   $("libraryTitle").textContent=activeCategory?(categories.find(c=>c.id===activeCategory)?.name||"Category"):(favoritesOnly?"Favorites":"All prompts");
   bindCards($("libraryGrid"));
 }
+
 function bindCards(container){
   container.querySelectorAll(".prompt-card").forEach(card=>{
     card.onclick=e=>{
@@ -204,6 +211,7 @@ async function toggleFavorite(id){
   await updateDoc(doc(db,"users",user.uid,"prompts",id),{favorite:p.favorite});
   renderAll();toast(p.favorite?"Added to favorites":"Removed from favorites");
 }
+
 async function copyPrompt(id){
   const p=prompts.find(x=>x.id===id);if(!p)return;
   try{
@@ -215,9 +223,10 @@ async function copyPrompt(id){
   }catch{toast("Clipboard permission was blocked.","error");}
 }
 
-// মোবাইল ও পিসির জন্য লাইটওয়েট Base64 কম্প্রেসর (৬০-৭০ KB নিশ্চিত করে)
+// ছবি ৫০-৭০ KB-তে কম্প্রেস করে Base64 বানানোর ফাংশন
 function compressToBase64(file){
   return new Promise((resolve, reject)=>{
+    if(!file) return resolve(null);
     const reader = new FileReader();
     reader.onload = e => {
       const img = new Image();
@@ -225,13 +234,20 @@ function compressToBase64(file){
         const canvas = document.createElement("canvas");
         const maxDim = 600;
         let w = img.width, h = img.height;
-        if(w > h && w > maxDim){ h = Math.round((h * maxDim) / w); w = maxDim; }
-        else if(h > maxDim){ w = Math.round((w * maxDim) / h); h = maxDim; }
+        if(w > h && w > maxDim){ 
+          h = Math.round((h * maxDim) / w); 
+          w = maxDim; 
+        } else if(h > maxDim){ 
+          w = Math.round((w * maxDim) / h); 
+          h = maxDim; 
+        }
         canvas.width = Math.max(1, w);
         canvas.height = Math.max(1, h);
         const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.6));
+        resolve(canvas.toDataURL("image/jpeg", 0.65));
       };
       img.onerror = () => reject(new Error("Image decode failed"));
       img.src = e.target.result;
@@ -277,18 +293,31 @@ $("promptImage").onchange = async e => {
 $("promptForm").onsubmit=async e=>{
   e.preventDefault();
   const id=$("promptId").value;
-  const base={
-    title:$("promptTitle").value.trim(),categoryId:$("promptCategory").value,tags:$("promptTags").value.split(",").map(x=>x.trim()).filter(Boolean),
-    text:$("promptText").value.trim(),negative:$("negativeText").value.trim(),notes:$("promptNotes").value.trim(),
-    model:$("promptModel").value.trim(),ratio:$("promptRatio").value.trim(),updatedAt:serverTimestamp()
-  };
+  const fileInput = $("promptImage");
+  const file = fileInput.files ? fileInput.files[0] : null;
 
-  if(currentCompressedImage){
-    base.imageUrl = currentCompressedImage;
-    base.imageThumbUrl = currentCompressedImage;
+  const submitBtn = e.target.querySelector("button[type='submit']");
+  if(submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving image...";
   }
 
   try{
+    if(file && !currentCompressedImage){
+      currentCompressedImage = await compressToBase64(file);
+    }
+
+    const base={
+      title:$("promptTitle").value.trim(),categoryId:$("promptCategory").value,tags:$("promptTags").value.split(",").map(x=>x.trim()).filter(Boolean),
+      text:$("promptText").value.trim(),negative:$("negativeText").value.trim(),notes:$("promptNotes").value.trim(),
+      model:$("promptModel").value.trim(),ratio:$("promptRatio").value.trim(),updatedAt:serverTimestamp()
+    };
+
+    if(currentCompressedImage){
+      base.imageUrl = currentCompressedImage;
+      base.imageThumbUrl = currentCompressedImage;
+    }
+
     if(id){
       const old=prompts.find(p=>p.id===id);
       if(!old)throw new Error("Prompt not found");
@@ -304,6 +333,12 @@ $("promptForm").onsubmit=async e=>{
     }
   }catch(err){
     console.error(err);toast("Could not save prompt. Check connection.","error");
+  }finally{
+    if(submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Save prompt";
+    }
+    currentCompressedImage = null;
   }
 };
 
