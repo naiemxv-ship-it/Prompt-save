@@ -15,9 +15,9 @@ import {
 
 const $ = id => document.getElementById(id);
 const qsa = s => [...document.querySelectorAll(s)];
-let user = null, prompts = [], categories = [], notes = [], currentNoteId = null;
+let user = null, prompts = [], categories = [], notes = [], currentNoteId = null, noteEditorOpen = false;
 let activeView = "dashboard", activeCategory = "", favoritesOnly = false, listMode = false;
-let currentImageFile = null, currentAsciiArt = "", currentAsciiSettings = {
+let currentImageFile = null, currentAsciiArt = "", currentAsciiColors = [], currentAsciiSettings = {
   width: 72, brightness: 0, contrast: 100, charset: "detailed", invert: false
 };
 
@@ -124,9 +124,11 @@ function renderUser(){
 function renderAll(){renderCategories();renderStats();renderDashboard();renderLibrary();renderNotes();fillCategorySelects();}
 function renderCategories(){
   const nav=$("categoryNav");
-  nav.innerHTML=categories.map(c=>`<button class="category-nav" data-cat="${escAttr(c.id)}"><i class="dot ${c.color||"orange"}"></i><span>${escapeHTML(c.name)}</span><em>${prompts.filter(p=>p.categoryId===c.id).length}</em></button>`).join("");
-  nav.querySelectorAll(".category-nav").forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;activeView="prompts";setView("prompts");});
+  nav.innerHTML=categories.map(c=>`<div class="category-nav-wrap"><button class="category-nav" data-cat="${escAttr(c.id)}"><i class="dot ${c.color||"orange"}"></i><span>${escapeHTML(c.name)}</span><em>${prompts.filter(p=>p.categoryId===c.id).length}</em></button><button class="category-delete" data-delete-category="${escAttr(c.id)}" title="Delete category" aria-label="Delete ${escAttr(c.name)}">×</button></div>`).join("");
+  nav.querySelectorAll(".category-nav").forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;favoritesOnly=false;setView("prompts");$("categoryFilter").value=activeCategory;renderLibrary();});
+  nav.querySelectorAll("[data-delete-category]").forEach(b=>b.onclick=e=>{e.stopPropagation();deleteCategory(b.dataset.deleteCategory);});
 }
+function dateValue(v){if(!v)return 0;const d=v.toDate?v.toDate():new Date(v);return Number.isNaN(d.getTime())?0:d.getTime();}
 function renderStats(){
   $("statPrompts").textContent=prompts.length;
   $("statCategories").textContent=categories.length;
@@ -134,7 +136,7 @@ function renderStats(){
   $("statCopied").textContent=prompts.reduce((a,p)=>a+(p.copyCount||0),0);
 }
 function renderDashboard(){
-  const recent=prompts.slice(0,8); $("recentGrid").innerHTML=recent.map(promptCard).join("");
+  const recent=[...prompts].sort((a,b)=>dateValue(b.createdAt)-dateValue(a.createdAt)).slice(0,8); $("recentGrid").innerHTML=recent.map(promptCard).join("");
   $("emptyDashboard").classList.toggle("hidden",prompts.length>0);
   bindCards($("recentGrid"));
 }
@@ -147,18 +149,21 @@ function fillCategorySelects(){
 function getFilteredPrompts(){
   let arr=[...prompts], search=$("globalSearch").value.trim().toLowerCase();
   if(activeCategory)arr=arr.filter(p=>p.categoryId===activeCategory);
-  if(favoritesOnly)arr=arr.filter(p=>p.favorite);
+  if(activeView==="favorites"||favoritesOnly)arr=arr.filter(p=>p.favorite);
+  if(activeView==="recent")arr=arr.filter(p=>p.lastUsedAt).sort((a,b)=>dateValue(b.lastUsedAt)-dateValue(a.lastUsedAt));
   if(search)arr=arr.filter(p=>(`${p.title} ${p.text} ${p.negative||""} ${p.notes||""} ${(p.tags||[]).join(" ")}`).toLowerCase().includes(search));
   const sort=$("sortFilter").value;
-  if(sort==="oldest")arr.reverse();
-  if(sort==="used")arr.sort((a,b)=>(b.copyCount||0)-(a.copyCount||0));
-  if(sort==="title")arr.sort((a,b)=>(a.title||"").localeCompare(b.title||""));
+  if(activeView!=="recent"){
+    if(sort==="oldest")arr.reverse();
+    if(sort==="used")arr.sort((a,b)=>(b.copyCount||0)-(a.copyCount||0));
+    if(sort==="title")arr.sort((a,b)=>(a.title||"").localeCompare(b.title||""));
+  }
   return arr;
 }
 function promptCard(p){
   const cat=categories.find(c=>c.id===p.categoryId);
   const image=p.asciiArt
-    ? `<pre class="ascii-card-art" aria-label="ASCII art preview">${escapeHTML(p.asciiArt)}</pre>`
+    ? `<pre class="ascii-card-art" aria-label="ASCII art preview">${coloredAsciiHTML(p.asciiArt,p.asciiColors)}</pre>`
     : ((p.imageThumbUrl||p.imageUrl)
       ? `<img src="${escAttr(p.imageThumbUrl||p.imageUrl)}" alt="Legacy reference image" loading="lazy" decoding="async">`
       : `<div class="image-placeholder"><span>ASCII</span></div>`);
@@ -174,11 +179,12 @@ function promptCard(p){
   </article>`;
 }
 function renderLibrary(){
+  $("favoritesOnly").classList.toggle("active",favoritesOnly||activeView==="favorites");
   const arr=getFilteredPrompts();
   $("libraryGrid").className=`prompt-grid ${listMode?"list-view":""}`;
   $("libraryGrid").innerHTML=arr.map(promptCard).join("");
   $("libraryEmpty").classList.toggle("hidden",arr.length>0);
-  $("libraryTitle").textContent=activeCategory?(categories.find(c=>c.id===activeCategory)?.name||"Category"):(favoritesOnly?"Favorites":"All prompts");
+  $("libraryTitle").textContent=activeCategory?(categories.find(c=>c.id===activeCategory)?.name||"Category"):(activeView==="favorites"||favoritesOnly?"Favorites":activeView==="recent"?"Recently Used":"All prompts");
   bindCards($("libraryGrid"));
 }
 function bindCards(container){
@@ -198,7 +204,7 @@ function bindCards(container){
 async function toggleFavorite(id){
   const p=prompts.find(x=>x.id===id);if(!p)return;
   p.favorite=!p.favorite;
-  await updateDoc(doc(db,"users",user.uid,"prompts",id),{favorite:p.favorite});
+  try { await updateDoc(doc(db,"users",user.uid,"prompts",id),{favorite:p.favorite}); } catch(err) { p.favorite=!p.favorite; toast("Could not update favorite. Check Firestore rules.","error"); return; }
   renderAll();toast(p.favorite?"Added to favorites":"Removed from favorites");
 }
 async function copyPrompt(id){
@@ -208,7 +214,7 @@ async function copyPrompt(id){
     p.copyCount=(p.copyCount||0)+1;
     p.lastUsedAt=new Date();
     await updateDoc(doc(db,"users",user.uid,"prompts",id),{copyCount:p.copyCount,lastUsedAt:serverTimestamp()});
-    renderStats();toast("Prompt copied to clipboard.");
+    renderStats();renderLibrary();toast("Prompt copied to clipboard.");
   }catch{toast("Clipboard permission was blocked.","error");}
 }
 
@@ -232,11 +238,17 @@ function readAsciiSettings(){
   };
 }
 
-function renderAsciiPreview(art){
-  currentAsciiArt = art || "";
+function coloredAsciiHTML(art, colors=[], maxCols=Infinity){
+  return String(art||"").split("\n").map((line,y)=>[...line].slice(0,maxCols).map((ch,x)=>{
+    const color=colors?.[y]?.[x];
+    return color && /^#[0-9a-f]{6}$/i.test(color) ? `<span style="color:${color}">${escapeHTML(ch)}</span>` : escapeHTML(ch);
+  }).join("")).join("\n");
+}
+function renderAsciiPreview(art, colors=[]){
+  currentAsciiArt = art || ""; currentAsciiColors=Array.isArray(colors)?colors:[];
   const preview = $("imagePreview");
   preview.innerHTML = currentAsciiArt
-    ? `<pre class="ascii-preview">${escapeHTML(currentAsciiArt)}</pre>`
+    ? `<pre class="ascii-preview">${coloredAsciiHTML(currentAsciiArt,currentAsciiColors)}</pre>`
     : `<div class="ascii-empty"><span>▦</span><small>ASCII preview appears here</small></div>`;
 }
 
@@ -274,11 +286,11 @@ async function imageFileToAscii(file, settings){
   if(bitmap) bitmap.close();
   const pixels = ctx.getImageData(0,0,cols,rows).data;
   const chars = ASCII_CHARSETS[settings.charset] || ASCII_CHARSETS.detailed;
-  const lines = [];
+  const lines = [], colorRows = [];
   const contrast = Math.max(0.2, Math.min(2, (Number(settings.contrast)||100)/100));
   const brightness = (Number(settings.brightness)||0) * 2.55;
   for(let y=0; y<rows; y++){
-    let line = "";
+    let line = ""; const colorLine=[];
     for(let x=0; x<cols; x++){
       const i=(y*cols+x)*4;
       let gray = 0.2126*pixels[i] + 0.7152*pixels[i+1] + 0.0722*pixels[i+2];
@@ -289,10 +301,12 @@ async function imageFileToAscii(file, settings){
       if(settings.invert) gray=255-gray;
       const idx=Math.max(0,Math.min(chars.length-1,Math.round((gray/255)*(chars.length-1))));
       line += chars[idx];
+      const r=Math.round(pixels[i]*alpha+255*(1-alpha)), g=Math.round(pixels[i+1]*alpha+255*(1-alpha)), b=Math.round(pixels[i+2]*alpha+255*(1-alpha));
+      colorLine.push(`#${[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("")}`);
     }
-    lines.push(line.replace(/\s+$/,""));
+    lines.push(line.replace(/\s+$/,"")); colorRows.push(colorLine);
   }
-  return lines.join("\n");
+  return {art:lines.join("\n"),colors:colorRows};
 }
 
 let asciiRenderToken = 0;
@@ -303,9 +317,9 @@ async function refreshAsciiFromSelectedFile(){
   currentAsciiSettings=settings;
   $("asciiStatus").textContent="Converting locally…";
   try{
-    const art=await imageFileToAscii(currentImageFile,settings);
+    const result=await imageFileToAscii(currentImageFile,settings);
     if(token!==asciiRenderToken)return;
-    renderAsciiPreview(art);
+    renderAsciiPreview(result.art,result.colors);
     $("asciiStatus").textContent=`Preview ready · ${settings.width} columns · saved as text only`;
   }catch(err){
     console.error(err);
@@ -329,7 +343,7 @@ function setAsciiControls(settings={}){
 
 function clearAsciiEditor(){
   currentImageFile=null;
-  currentAsciiArt="";
+  currentAsciiArt=""; currentAsciiColors=[];
   setAsciiControls();
   $("promptImage").value="";
   $("asciiStatus").textContent="Choose an image to create an ASCII preview.";
@@ -348,13 +362,14 @@ function openPrompt(id=null){
   if(id){
     const p=prompts.find(x=>x.id===id);
     if(!p)return;
+    p.lastUsedAt=new Date(); updateDoc(doc(db,"users",user.uid,"prompts",id),{lastUsedAt:serverTimestamp()}).catch(()=>{});
     $("promptTitle").value=p.title||"";$("promptCategory").value=p.categoryId||categories[0]?.id||"";
     $("promptTags").value=(p.tags||[]).join(", ");$("promptText").value=p.text||"";
     $("negativeText").value=p.negative||"";$("promptNotes").value=p.notes||"";$("promptModel").value=p.model||"";$("promptRatio").value=p.ratio||"";
     if(p.asciiArt){
-      currentAsciiArt=p.asciiArt;
+      currentAsciiArt=p.asciiArt; currentAsciiColors=p.asciiColors||[];
       setAsciiControls(p.asciiSettings||{});
-      renderAsciiPreview(p.asciiArt);
+      renderAsciiPreview(p.asciiArt,p.asciiColors||[]);
       $("asciiStatus").textContent="Saved ASCII text · select a new image to replace it";
     } else if(p.imageUrl){
       $("imagePreview").innerHTML=`<img class="legacy-image-preview" src="${escAttr(p.imageUrl)}" alt="Legacy image preview">`;
@@ -380,9 +395,11 @@ $("promptForm").onsubmit=async e=>{
   };
   if(currentAsciiArt){
     base.asciiArt=currentAsciiArt;
+    base.asciiColors=currentAsciiColors;
     base.asciiSettings=settings;
   } else if(old?.asciiArt){
     base.asciiArt=old.asciiArt;
+    base.asciiColors=old.asciiColors||[];
     base.asciiSettings=old.asciiSettings||settings;
   }
   // Clear legacy image URLs from the document when the prompt is converted to ASCII.
@@ -441,22 +458,40 @@ async function deletePrompt(id){
   });
 }
 
+function notePlainText(html="") { const el=document.createElement("div"); el.innerHTML=String(html); return (el.textContent||el.innerText||"").replace(/\s+/g," ").trim(); }
+function sanitizeNoteHtml(html="") {
+  const box=document.createElement("div");
+  const looksHtml=/<[a-z][\s\S]*>/i.test(String(html));
+  box.innerHTML=looksHtml?String(html):escapeHTML(String(html)).replace(/\n/g,"<br>");
+  const allowed=new Set(["B","STRONG","I","EM","U","BR","P","DIV","UL","OL","LI","H1","H2","H3","BLOCKQUOTE"]);
+  const walk=node=>[...node.childNodes].forEach(child=>{
+    if(child.nodeType===Node.ELEMENT_NODE){
+      if(!allowed.has(child.tagName)){child.replaceWith(...child.childNodes);return;}
+      [...child.attributes].forEach(a=>{
+        if(a.name==="style" && /^(text-align:\s*(left|center|right|justify)\s*;?)$/i.test(a.value) && ["P","DIV","H1","H2","H3","BLOCKQUOTE"].includes(child.tagName)) child.setAttribute("style",a.value.replace(/\s+/g," ").trim());
+        else child.removeAttribute(a.name);
+      }); walk(child);
+    } else if(child.nodeType!==Node.TEXT_NODE){child.remove();}
+  });
+  walk(box); return box.innerHTML;
+}
 function renderNotes(){
-  $("notesList").innerHTML=notes.map(n=>`<button class="note-item ${n.id===currentNoteId?"active":""}" data-id="${n.id}"><strong>${escapeHTML(n.title||"Untitled")}</strong><span>${escapeHTML(n.body||"").slice(0,60)}</span><small>${fmtDate(n.updatedAt)}</small></button>`).join("");
-  $("notesList").querySelectorAll(".note-item").forEach(b=>b.onclick=()=>selectNote(b.dataset.id));
-  if(currentNoteId&&!notes.find(n=>n.id===currentNoteId))currentNoteId=null;
-  if(!currentNoteId&&notes[0])selectNote(notes[0].id);
-  if(!notes.length){$("noteTitle").value="";$("noteBody").value="";$("noteStatus").textContent="No notes yet";}
+  const gallery=$("notesGallery");
+  gallery.innerHTML=notes.map(n=>`<article class="note-gallery-card" data-note-id="${escAttr(n.id)}"><button class="note-card-delete" data-delete-note="${escAttr(n.id)}" title="Delete note" aria-label="Delete note">×</button><button class="note-card-open" data-open-note="${escAttr(n.id)}"><span class="note-card-icon">▤</span><strong>${escapeHTML(n.title||"Untitled note")}</strong><span class="note-card-preview">${escapeHTML(notePlainText(n.body||"").slice(0,150)||"Empty note")}</span><small>${fmtDate(n.updatedAt)}</small></button></article>`).join("");
+  gallery.classList.toggle("hidden",noteEditorOpen);
+  $("noteEditorPanel").classList.toggle("hidden",!noteEditorOpen);
+  gallery.querySelectorAll("[data-open-note]").forEach(b=>b.onclick=()=>selectNote(b.dataset.openNote));
+  gallery.querySelectorAll("[data-delete-note]").forEach(b=>b.onclick=e=>{e.stopPropagation();deleteNote(b.dataset.deleteNote);});
+  if(!notes.length&&!noteEditorOpen)gallery.innerHTML='<div class="empty-state"><div>▤</div><h3>No notes yet</h3><p>Create a note to start collecting your ideas.</p></div>';
 }
 function selectNote(id){
-  const n=notes.find(x=>x.id===id);if(!n)return;currentNoteId=id;$("noteTitle").value=n.title||"";$("noteBody").value=n.body||"";$("noteStatus").textContent="Saved";renderNotesListOnly();
-}
-function renderNotesListOnly(){
-  $("notesList").querySelectorAll(".note-item").forEach(b=>b.classList.toggle("active",b.dataset.id===currentNoteId));
+  const n=notes.find(x=>x.id===id);if(!n)return;
+  currentNoteId=id;noteEditorOpen=true;
+  $("noteTitle").value=n.title||"";$("noteBody").innerHTML=sanitizeNoteHtml(n.body||"");$("noteStatus").textContent="Saved";renderNotes();
 }
 async function saveNote(){
-  const title=$("noteTitle").value.trim()||"Untitled note",body=$("noteBody").value;
-  if(!title&& !body)return;
+  const title=$("noteTitle").value.trim()||"Untitled note",body=sanitizeNoteHtml($("noteBody").innerHTML);
+  if(!title&&!notePlainText(body))return toast("Write something before saving.","error");
   try{
     if(currentNoteId){
       await updateDoc(doc(db,"users",user.uid,"notes",currentNoteId),{title,body,updatedAt:serverTimestamp()});
@@ -465,28 +500,57 @@ async function saveNote(){
       const d=await addDoc(collection(db,"users",user.uid,"notes"),{title,body,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
       currentNoteId=d.id;notes.unshift({id:d.id,title,body,createdAt:new Date(),updatedAt:new Date()});
     }
-    $("noteStatus").textContent="Saved just now";renderNotes();
-  }catch(err){toast("Could not save note.","error");}
+    $("noteStatus").textContent="Saved just now";renderNotes();toast("Note saved.");
+  }catch(err){console.error(err);toast("Could not save note.","error");}
+}
+async function deleteNote(id){
+  const n=notes.find(x=>x.id===id);if(!n)return;
+  confirmAction("Delete note?",`“${n.title||"Untitled note"}” will be permanently deleted.`,async()=>{
+    try{await deleteDoc(doc(db,"users",user.uid,"notes",id));notes=notes.filter(x=>x.id!==id);if(currentNoteId===id){currentNoteId=null;noteEditorOpen=false;}renderNotes();toast("Note deleted.");}
+    catch(err){toast("Could not delete note.","error");}
+  });
 }
 $("saveNoteBtn").onclick=saveNote;
-$("newNoteBtn").onclick=()=>{activeView="notes";setView("notes");currentNoteId=null;$("noteTitle").value="";$("noteBody").value="";$("noteStatus").textContent="New note";};
-$("noteToPrompt").onclick=()=>{openPrompt();$("promptTitle").value=$("noteTitle").value;$("promptText").value=$("noteBody").value;};
+function createNewNote(){currentNoteId=null;noteEditorOpen=true;$("noteTitle").value="";$("noteBody").innerHTML="";$("noteStatus").textContent="New note";setView("notes");$("noteTitle").focus();}
+$("newNoteBtn").onclick=createNewNote;$("newNoteBtnPage").onclick=createNewNote;
+$("backToNotes").onclick=()=>{noteEditorOpen=false;currentNoteId=null;renderNotes();};
+$("noteToPrompt").onclick=()=>{openPrompt();$("promptTitle").value=$("noteTitle").value;$("promptText").value=notePlainText($("noteBody").innerHTML);};
 $("noteTitle").oninput=$("noteBody").oninput=()=>{$("noteStatus").textContent="Unsaved changes";};
+qsa(".note-toolbar [data-command]").forEach(b=>b.onclick=()=>{document.execCommand(b.dataset.command,false,null);$("noteBody").focus();$("noteStatus").textContent="Unsaved changes";});
+qsa(".note-toolbar [data-align]").forEach(b=>b.onclick=()=>{document.execCommand("justify"+b.dataset.align,false,null);$("noteBody").focus();$("noteStatus").textContent="Unsaved changes";});
 
 function setView(view){
   activeView=view;
+  if(view==="favorites"){activeCategory="";favoritesOnly=true;}
+  else if(view==="recent"){activeCategory="";favoritesOnly=false;}
+  else if(view==="prompts"){favoritesOnly=false;}
+  const page=(view==="favorites"||view==="recent")?"prompts":view;
   qsa(".page-view").forEach(v=>v.classList.add("hidden"));
-  $(view+"View")?.classList.remove("hidden");
+  $(page+"View")?.classList.remove("hidden");
   qsa(".nav-item[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
   $("sidebar").classList.remove("open");$("sidebarOverlay").classList.remove("show");
-  if(view==="prompts")renderLibrary();
+  if(page==="prompts")renderLibrary();
   if(view==="notes")renderNotes();
 }
-qsa(".nav-item[data-view]").forEach(b=>b.onclick=()=>setView(b.dataset.view));
+qsa(".nav-item[data-view]").forEach(b=>b.onclick=()=>{if(b.dataset.view==="notes"){noteEditorOpen=false;currentNoteId=null;}setView(b.dataset.view);});
 qsa("[data-view-link]").forEach(b=>b.onclick=()=>setView(b.dataset.viewLink));
 $("newPromptBtn").onclick=()=>openPrompt();
 $("emptyNewPrompt").onclick=()=>openPrompt();
 $("addCategoryBtn").onclick=()=>{$("categoryModal").classList.remove("hidden");setTimeout(()=>$("categoryName").focus(),50);};
+
+async function deleteCategory(id){
+  const cat=categories.find(c=>c.id===id); if(!cat)return;
+  confirmAction("Delete category?",`Prompts in “${cat.name}” will be moved to Uncategorized. The prompts themselves will not be deleted.`,async()=>{
+    try{
+      const affected=prompts.filter(p=>p.categoryId===id);
+      await Promise.all(affected.map(p=>updateDoc(doc(db,"users",user.uid,"prompts",p.id),{categoryId:""})));
+      await deleteDoc(doc(db,"users",user.uid,"categories",id));
+      prompts.forEach(p=>{if(p.categoryId===id)p.categoryId="";});
+      categories=categories.filter(c=>c.id!==id); if(activeCategory===id)activeCategory="";
+      renderAll();toast("Category deleted.");
+    }catch(err){console.error(err);toast("Could not delete category. Check Firestore rules.","error");}
+  });
+}
 
 $("categoryForm").onsubmit=async e=>{
   e.preventDefault();
@@ -499,7 +563,7 @@ $("categoryForm").onsubmit=async e=>{
 
 $("categoryFilter").onchange=e=>{activeCategory=e.target.value;renderLibrary();};
 $("sortFilter").onchange=renderLibrary;
-$("favoritesOnly").onclick=()=>{favoritesOnly=!favoritesOnly;$("favoritesOnly").classList.toggle("active",favoritesOnly);renderLibrary();};
+$("favoritesOnly").onclick=()=>{favoritesOnly=!favoritesOnly;activeView="prompts";$("favoritesOnly").classList.toggle("active",favoritesOnly);renderLibrary();};
 $("globalSearch").oninput=()=>{if(activeView!=="prompts")setView("prompts");else renderLibrary();};
 $("gridMode").onclick=()=>{listMode=false;$("gridMode").classList.add("active");$("listMode").classList.remove("active");renderLibrary();};
 $("listMode").onclick=()=>{listMode=true;$("listMode").classList.add("active");$("gridMode").classList.remove("active");renderLibrary();};
@@ -528,8 +592,17 @@ $("saveProfileBtn").onclick=async()=>{
   catch(err){toast("Could not update profile.","error");}
 };
 
+function jsonSafeRecord(record){
+  const out={};
+  for(const [key,value] of Object.entries(record||{})){
+    if(value&&typeof value.toDate==="function")out[key]=value.toDate().toISOString();
+    else if(value instanceof Date)out[key]=value.toISOString();
+    else out[key]=value;
+  }
+  return out;
+}
 function exportData(){
-  const data={version:1,exportedAt:new Date().toISOString(),categories:categories.map(({id,...x})=>x),prompts:prompts.map(({id,...x})=>x),notes:notes.map(({id,...x})=>x)};
+  const data={version:2,exportedAt:new Date().toISOString(),categories:categories.map(jsonSafeRecord),prompts:prompts.map(jsonSafeRecord),notes:notes.map(jsonSafeRecord)};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download=`promptvault-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);toast("Backup exported.");
 }
@@ -539,9 +612,9 @@ $("importFile").onchange=async e=>{
   try{
     const data=JSON.parse(await f.text());
     if(!Array.isArray(data.prompts))throw new Error("Invalid backup");
-    for(const c of (data.categories||[]))await addDoc(collection(db,"users",user.uid,"categories"),{...c,createdAt:serverTimestamp()});
-    for(const p of data.prompts)await addDoc(collection(db,"users",user.uid,"prompts"),{...p,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
-    for(const n of (data.notes||[]))await addDoc(collection(db,"users",user.uid,"notes"),{...n,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    for(const c of (data.categories||[])){const {id,...payload}=c; if(id)await setDoc(doc(db,"users",user.uid,"categories",id),{...payload,createdAt:payload.createdAt||serverTimestamp()},{merge:true});else await addDoc(collection(db,"users",user.uid,"categories"),{...payload,createdAt:serverTimestamp()});}
+    for(const p of data.prompts){const {id,...payload}=p; const record={...payload,createdAt:payload.createdAt||serverTimestamp(),updatedAt:serverTimestamp()}; if(id)await setDoc(doc(db,"users",user.uid,"prompts",id),record,{merge:true});else await addDoc(collection(db,"users",user.uid,"prompts"),record);}
+    for(const n of (data.notes||[])){const {id,...payload}=n; const record={...payload,createdAt:payload.createdAt||serverTimestamp(),updatedAt:serverTimestamp()}; if(id)await setDoc(doc(db,"users",user.uid,"notes",id),record,{merge:true});else await addDoc(collection(db,"users",user.uid,"notes"),record);}
     await loadAll();toast("Backup imported.");
   }catch(err){toast("Invalid or incompatible JSON backup.","error");}
   e.target.value="";

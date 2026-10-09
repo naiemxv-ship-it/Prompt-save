@@ -11,17 +11,18 @@ A responsive personal AI Prompt Workspace built with Firebase Authentication, Fi
 - Prompt CRUD
 - Local image-to-ASCII conversion (original image stays in the browser)
 - ASCII preview controls: width/detail, brightness, contrast, character set, invert
-- Only ASCII text/settings are stored in Firestore; no new source-image uploads to Firebase Storage
+- ASCII characters, per-character color data and conversion settings are stored in Firestore; original images are never uploaded
 - Categories and custom categories
 - Tags
-- Favorites
+- Favorites with a working Favorites page
+- Recently Used page (updates when prompts are opened or copied)
 - Recently added / copy count
 - Search and filters
 - Grid/list views
-- Notepad with autosave-ready UX
+- Gallery-style Notepad with saved notes, rich-text formatting (bold, italic, underline, alignment, lists), edit and delete
 - Save note as prompt
 - Dark mode
-- JSON export/import
+- JSON export/import that preserves prompt IDs, ASCII text, colors, settings, favorites and notes
 - Responsive desktop + mobile UI
 - Firestore and Storage security rules
 
@@ -54,7 +55,7 @@ Install Firebase CLI, log in, then from this folder:
     firebase use prompt-save-6f510
     firebase deploy
 
-The included rules protect each user's data by their Firebase Auth UID.
+The included Firestore rules protect each user's data by their Firebase Auth UID. The Storage rules separately allow an authenticated user to read/delete only their own legacy image files, and limit uploads to under 10 MB. New ASCII-only prompts do not upload image files.
 
 ## Important
 
@@ -67,6 +68,6 @@ For production, consider adding App Check, email verification, rate limits, stro
 - The original image is processed locally in the browser using Canvas.
 - The app converts the pixels into ASCII characters and shows a live preview.
 - Basic controls: output width/detail, brightness, contrast, character set, and invert.
-- Only the ASCII string and settings are stored in Firestore. New image files are never uploaded to Firebase Storage.
+- The ASCII text, sampled colors and settings are stored in Firestore. New image files are never uploaded to Firebase Storage.
 - The Copy Prompt button copies only the prompt text; ASCII art is not copied.
 - Existing image files previously uploaded to Firebase Storage are not automatically deleted in bulk. When an old prompt is edited and converted to ASCII, its stored image URLs are removed and the old objects are best-effort deleted.

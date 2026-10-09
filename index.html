@@ -134,15 +134,19 @@
         </div>
 
         <div id="notesView" class="page-view hidden">
-          <div class="page-heading compact"><div><span class="eyebrow">SCRATCHPAD</span><h2>Notepad</h2><p>Capture ideas, rough prompts and reusable notes.</p></div><button id="saveNoteBtn" class="primary-btn">Save note</button></div>
-          <div class="notes-layout">
-            <aside id="notesList" class="notes-list"></aside>
-            <section class="note-editor">
-              <input id="noteTitle" class="note-title" placeholder="Untitled note">
-              <textarea id="noteBody" placeholder="Start writing..."></textarea>
-              <div class="note-footer"><span id="noteStatus">Ready</span><button id="noteToPrompt" class="secondary-btn">Save as prompt</button></div>
-            </section>
-          </div>
+          <div class="page-heading compact"><div><span class="eyebrow">PERSONAL NOTES</span><h2>Notepad</h2><p>Your notes in one gallery. Create, format, edit and reuse ideas.</p></div><button id="newNoteBtnPage" class="primary-btn">+ New note</button></div>
+          <div id="notesGallery" class="notes-gallery"></div>
+          <section id="noteEditorPanel" class="note-editor note-editor-panel hidden">
+            <div class="note-editor-top"><button id="backToNotes" class="secondary-btn">← All notes</button><div class="note-editor-actions"><button id="saveNoteBtn" class="primary-btn">Save note</button><button id="noteToPrompt" class="secondary-btn">Save as prompt</button></div></div>
+            <input id="noteTitle" class="note-title" placeholder="Untitled note">
+            <div class="note-toolbar" role="toolbar" aria-label="Text formatting">
+              <button type="button" data-command="bold" title="Bold"><b>B</b></button><button type="button" data-command="italic" title="Italic"><i>I</i></button><button type="button" data-command="underline" title="Underline"><u>U</u></button><span class="toolbar-divider"></span>
+              <button type="button" data-align="left" title="Align left">☰</button><button type="button" data-align="center" title="Align center">≡</button><button type="button" data-align="right" title="Align right">☷</button><span class="toolbar-divider"></span>
+              <button type="button" data-command="insertUnorderedList" title="Bulleted list">• List</button><button type="button" data-command="insertOrderedList" title="Numbered list">1. List</button>
+            </div>
+            <div id="noteBody" class="note-body" contenteditable="true" data-placeholder="Start writing your note..."></div>
+            <div class="note-footer"><span id="noteStatus">Ready</span></div>
+          </section>
         </div>
 
         <div id="settingsView" class="page-view hidden">

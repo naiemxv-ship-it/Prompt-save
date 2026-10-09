@@ -55,3 +55,38 @@
   .image-preview{height:220px}
   .ascii-preview{font-size:6px;line-height:6px}
 }
+
+/* PromptVault reliability and accessibility improvements */
+.brand-mark{background:#111827;color:#ffffff;flex-shrink:0}
+.dark .brand-mark{background:#ff7a00;color:#ffffff;box-shadow:0 8px 22px rgba(255,122,0,.22)}
+.category-nav-wrap{display:flex;align-items:center;gap:2px}
+.category-nav-wrap .category-nav{flex:1;min-width:0}
+.category-nav-wrap .category-nav span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.category-delete{flex:0 0 27px;width:27px;height:27px;border:0;border-radius:7px;background:transparent;color:var(--muted);font-size:18px;opacity:.65}
+.category-nav-wrap:hover .category-delete,.category-delete:focus-visible{opacity:1}
+.category-delete:hover{background:#fee2e2;color:#b91c1c}
+.dark .category-delete:hover{background:#450a0a;color:#fca5a5}
+.prompt-image .ascii-card-art{font-size:3.5px;line-height:3.5px;letter-spacing:0;white-space:pre;overflow:hidden;text-align:center}
+.notes-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.note-gallery-card{position:relative;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:13px;min-height:170px;box-shadow:var(--shadow);overflow:hidden}
+.note-card-open{display:flex;flex-direction:column;gap:9px;width:100%;height:100%;min-height:170px;text-align:left;padding:18px 17px 15px;border:0;background:transparent;color:var(--text)}
+.note-card-open:hover{background:var(--surface)}
+.note-card-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(255,122,0,.12);color:var(--accent);font-size:18px}
+.note-card-open strong{font-size:14px;padding-right:18px;overflow-wrap:anywhere}
+.note-card-preview{color:var(--muted);font-size:11px;line-height:1.55;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.note-card-open small{margin-top:auto;color:var(--muted);font-size:10px}
+.note-card-delete{position:absolute;right:9px;top:9px;z-index:2;border:0;background:var(--surface);color:var(--muted);width:27px;height:27px;border-radius:7px;font-size:18px}
+.note-card-delete:hover{background:#fee2e2;color:#b91c1c}
+.note-editor-panel{margin-top:4px;min-height:560px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px}
+.note-editor-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+.note-editor-actions{display:flex;gap:8px;flex-wrap:wrap}
+.note-toolbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;border:1px solid var(--border);border-radius:9px;padding:7px;margin:0 0 12px;background:var(--surface)}
+.note-toolbar button{min-width:32px;height:30px;padding:4px 8px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--text);font-size:12px}
+.note-toolbar button:hover{background:var(--card);border-color:var(--border)}
+.toolbar-divider{width:1px;height:20px;background:var(--border);margin:0 3px}
+.note-body{min-height:340px;outline:none;padding:10px 3px;color:var(--text);font-size:14px;line-height:1.8;overflow-wrap:anywhere}
+.note-body:empty:before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
+.note-body ul,.note-body ol{padding-left:25px}
+.note-footer{margin-top:auto}
+@media(max-width:1000px){.notes-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.notes-gallery{grid-template-columns:1fr}.note-editor-panel{padding:15px}.note-editor-top{align-items:flex-start;flex-direction:column}.note-editor-actions{width:100%}.note-editor-actions button{flex:1}}
