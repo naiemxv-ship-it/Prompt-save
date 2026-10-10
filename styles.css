@@ -16,6 +16,40 @@
 
 .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:var(--navy);color:#fff;padding:10px 15px;border-radius:9px;font-size:11px;z-index:300;transition:.2s}.toast.show{opacity:1;transform:translate(-50%,0)}.toast.error{background:#b91c1c}
 
+/* ডিফল্ট / লাইট মোড (Light Mode): কালো ব্যাকগ্রাউন্ড, সাদা টেক্সট */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background-color: #0f172a !important;   /* ডার্ক/কালো ব্যাকগ্রাউন্ড */
+  color: #ffffff !important;              /* সাদা টেক্সট */
+  padding: 10px 20px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.25s ease;
+  z-index: 9999;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ডার্ক মোড (Dark Mode): সাদা ব্যাকগ্রাউন্ড, কালো টেক্সট */
+html.dark .toast,
+body.dark .toast {
+  background-color: #ffffff !important;   /* সাদা ব্যাকগ্রাউন্ড */
+  color: #0f172a !important;              /* কালো টেক্সট */
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
 .dark{--bg:#0b1120;--card:#111827;--surface:#182234;--border:#263246;--text:#f8fafc;--muted:#94a3b8;--navy:#f8fafc;--shadow:0 10px 30px rgba(0,0,0,.18)}.dark .sidebar,.dark .topbar{background:#0f172a}.dark .search-wrap{background:#182234}.dark .profile-btn span:first-child{background:#f8fafc;color:#111827}.dark .category-pill.blue{background:#172554;color:#93c5fd}.dark .category-pill.purple{background:#2e1065;color:#c4b5fd}.dark .category-pill.green{background:#052e16;color:#86efac}.dark .category-pill.red{background:#450a0a;color:#fca5a5}.dark .category-pill{background:#431407;color:#fdba74}.dark .filter-chip.active{background:#431407;border-color:#7c2d12;color:#fdba74}.dark .danger-btn{background:#450a0a;color:#fca5a5}
 
 @media(max-width:1150px){.prompt-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.stats-grid{grid-template-columns:repeat(2,1fr)}}
