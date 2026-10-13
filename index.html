@@ -7,14 +7,12 @@
   <meta name="description" content="Your personal AI prompt workspace. Save, organize, and reuse prompts.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PromptVault">
   <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
   <link rel="icon" href="./icons/promptvault.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="./icons/promptvault.svg">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <title>PromptVault — AI Prompt Workspace</title>
- <!-- Browser Tab Logo (Favicon) -->
-<link rel="icon" type="image/png" href="./favicon.png">
-  <link rel="manifest" href="./manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -22,6 +20,10 @@
 </head>
 <body>
   <div id="toast" class="toast"></div>
+  <div id="offlineIndicator" class="offline-banner hidden">
+    <span class="offline-dot"></span>
+    <span>You are currently offline. Viewing cached prompts is supported; saving changes requires an internet connection.</span>
+  </div>
 
   <section id="authView" class="auth-view">
     <div class="auth-shell">
@@ -87,7 +89,13 @@
         <div id="categoryNav"></div>
       </div>
 
+      <div class="side-section">
+        <div class="side-section-title"><span>My Collections</span><button id="addCollectionBtn" class="mini-add" title="New collection">+</button></div>
+        <div id="collectionNav"></div>
+      </div>
+
       <div class="sidebar-bottom">
+        <button class="nav-item install-app-btn hidden" id="installAppSidebarBtn">📲 <span>Install App</span></button>
         <button class="nav-item" id="settingsBtn">⚙ <span>Settings</span></button>
         <button class="nav-item" id="logoutBtn">↪ <span>Logout</span></button>
       </div>
@@ -100,6 +108,7 @@
         <button id="menuBtn" class="icon-btn mobile-only">☰</button>
         <div class="search-wrap">
           <span>⌕</span><input id="globalSearch" placeholder="Search prompts, tags, notes..." autocomplete="off">
+          <button type="button" id="clearSearchBtn" class="clear-search-btn hidden" title="Clear search" aria-label="Clear search">×</button>
           <kbd>Ctrl K</kbd>
         </div>
         <div class="top-actions">
@@ -133,14 +142,54 @@
         </div>
 
         <div id="promptsView" class="page-view hidden">
-          <div class="page-heading compact"><div><span class="eyebrow">LIBRARY</span><h2 id="libraryTitle">All prompts</h2><p id="librarySubtitle">Browse and manage your prompt collection.</p></div><div class="view-controls"><button class="filter-btn active" id="gridMode">▦</button><button class="filter-btn" id="listMode">☷</button></div></div>
+          <div class="page-heading compact">
+            <div>
+              <span class="eyebrow">LIBRARY</span>
+              <h2 id="libraryTitle">All prompts</h2>
+              <p id="librarySubtitle">Browse and manage your prompt collection.</p>
+            </div>
+            <div class="view-controls">
+              <button class="filter-btn active" id="gridMode" title="Grid view">▦</button>
+              <button class="filter-btn" id="listMode" title="List view">☷</button>
+            </div>
+          </div>
+
           <div class="filter-bar">
             <select id="categoryFilter"><option value="">All categories</option></select>
-            <select id="sortFilter"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="used">Most used</option><option value="title">Title A–Z</option></select>
+            <select id="collectionFilter"><option value="">All collections</option></select>
+            <select id="modelFilter"><option value="">All models</option></select>
+            <select id="dateFilter">
+              <option value="">Any time</option>
+              <option value="today">Today</option>
+              <option value="7days">Past 7 days</option>
+              <option value="30days">Past 30 days</option>
+            </select>
+            <select id="sortFilter">
+              <option value="newest">Recently added</option>
+              <option value="updated">Recently updated</option>
+              <option value="used_recent">Recently used</option>
+              <option value="used">Most copied</option>
+              <option value="title_asc">Title A–Z</option>
+              <option value="title_desc">Title Z–A</option>
+              <option value="oldest">Oldest first</option>
+            </select>
             <button id="favoritesOnly" class="filter-chip">★ Favorites</button>
+            <button id="recentUsedOnly" class="filter-chip">◷ Recently Used</button>
+            <button id="resetFiltersBtn" class="reset-filters-btn hidden">↺ Reset filters</button>
           </div>
+
+          <div class="filter-status-row">
+            <span id="resultCount" class="result-count">Showing 0 prompts</span>
+            <div id="activeFilterTags" class="active-filter-tags"></div>
+          </div>
+
           <div id="libraryGrid" class="prompt-grid"></div>
-          <div id="libraryEmpty" class="empty-state hidden"><div>⌕</div><h3>No prompts found</h3><p>Try another search or create a new prompt.</p></div>
+          <div id="libraryEmpty" class="empty-state hidden">
+            <div>⌕</div>
+            <h3>No prompts found</h3>
+            <p id="libraryEmptyText">Try another search or adjust your active filters.</p>
+            <button id="emptyResetFilters" class="secondary-btn">Clear all filters</button>
+          </div>
         </div>
 
         <div id="notesView" class="page-view hidden">
@@ -165,6 +214,23 @@
             <div class="settings-section"><h3>Profile</h3><label>Display name<input id="settingsName"></label><label>Email<input id="settingsEmail" disabled></label><button id="saveProfileBtn" class="primary-btn">Save profile</button></div>
             <div class="settings-section"><h3>Appearance</h3><div class="setting-line"><div><strong>Dark mode</strong><small>Use a darker workspace at night.</small></div><button id="settingsThemeBtn" class="toggle-btn">Toggle</button></div></div>
             <div class="settings-section"><h3>Backup</h3><p class="muted">Export your prompts, categories and notes as JSON. Images are not included in the JSON backup.</p><div class="button-row"><button id="exportBtn" class="secondary-btn">Export JSON</button><button id="settingsImportBtn" class="secondary-btn">Import JSON</button><input id="importFile" type="file" accept=".json" hidden></div></div>
+            <div class="settings-section">
+              <h3>Progressive Web App (PWA)</h3>
+              <div class="setting-line">
+                <div>
+                  <strong>App Installation</strong>
+                  <small id="pwaStatusText">Install PromptVault on your device for quick offline access and standalone window.</small>
+                </div>
+                <button id="pwaInstallBtn" class="primary-btn compact-btn">Install App</button>
+              </div>
+              <div class="setting-line" style="margin-top:14px">
+                <div>
+                  <strong>Offline Service Worker</strong>
+                  <small id="swStatusText">Checking offline cache...</small>
+                </div>
+                <button id="swUpdateBtn" class="secondary-btn compact-btn">Check Update</button>
+              </div>
+            </div>
             <div class="settings-section danger"><h3>Session</h3><button id="settingsLogout" class="danger-btn">Log out</button></div>
           </div>
         </div>
@@ -176,18 +242,42 @@
     <div class="modal-backdrop"></div>
     <div class="modal-card large">
       <button class="modal-close" data-close="promptModal">×</button>
-      <div class="modal-head"><div><span class="eyebrow">PROMPT</span><h2 id="promptModalTitle">New prompt</h2></div></div>
+      <div class="modal-head">
+        <div><span class="eyebrow">PROMPT</span><h2 id="promptModalTitle">New prompt</h2></div>
+        <button type="button" id="promptVersionsBtn" class="secondary-btn compact-btn hidden" title="View version history">🕒 History (<span id="versionCountBadge">0</span>)</button>
+      </div>
       <form id="promptForm">
         <input id="promptId" type="hidden">
+        <label>Title<input id="promptTitle" required placeholder="e.g. Cinematic character portrait"></label>
         <div class="form-grid">
-          <label>Title<input id="promptTitle" required placeholder="e.g. Cinematic character portrait"></label>
           <label>Category<select id="promptCategory"></select></label>
+          <label>Collection (optional)<select id="promptCollection"><option value="">No collection</option></select></label>
         </div>
         <label>Tags <input id="promptTags" placeholder="cartoon, character, cinematic"></label>
         <section class="ascii-editor">
           <div class="ascii-editor-head">
             <div><strong>ASCII reference preview</strong><p>Your image is converted in this browser. Only ASCII text and settings are saved to Firebase—your original image is not uploaded.</p></div>
-            <button type="button" id="clearAsciiBtn" class="secondary-btn compact-btn">Clear</button>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <button type="button" id="saveCustomPresetBtn" class="secondary-btn compact-btn" title="Save current settings as custom preset">+ Save Preset</button>
+              <button type="button" id="clearAsciiBtn" class="secondary-btn compact-btn">Clear</button>
+            </div>
+          </div>
+          <div class="ascii-presets-bar">
+            <label style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px">
+              <span>Preset:</span>
+              <select id="asciiPresetSelect">
+                <option value="balanced">Balanced (Default)</option>
+                <option value="portrait">Portrait</option>
+                <option value="high_detail">High Detail</option>
+                <option value="landscape">Landscape</option>
+                <option value="logo">Logo & Shapes</option>
+                <option value="sketch">Sketch</option>
+                <option value="color">Color ASCII</option>
+                <option value="compact">Compact (Narrow)</option>
+                <option value="terminal">Terminal Invert</option>
+              </select>
+            </label>
+            <span id="presetDiffBadge" class="preset-diff-badge hidden">Customized</span>
           </div>
           <label class="file-picker">Choose reference image<input id="promptImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp"></label>
           <div id="imagePreview" class="image-preview"><div class="ascii-empty"><span>▦</span><small>ASCII preview appears here</small></div></div>
@@ -199,6 +289,12 @@
             <label class="ascii-invert"><input id="asciiInvert" type="checkbox"> Invert brightness</label>
           </div>
           <small id="asciiStatus" class="ascii-status">Choose an image to create an ASCII preview.</small>
+          <div class="ascii-export-bar">
+            <span style="font-size:11px;font-weight:700;color:var(--muted)">Export artwork:</span>
+            <button type="button" id="exportAsciiTxtBtn" class="secondary-btn compact-btn" title="Download ASCII as .txt file">📄 TXT</button>
+            <button type="button" id="exportAsciiHtmlBtn" class="secondary-btn compact-btn" title="Download ASCII as standalone .html file">🌐 HTML</button>
+            <button type="button" id="exportAsciiPngBtn" class="secondary-btn compact-btn" title="Download ASCII as high-res .png graphic">🖼 PNG</button>
+          </div>
         </section>
         <label>Prompt<textarea id="promptText" required class="code-area" placeholder="Write your complete generation prompt..."></textarea></label>
         <label>Negative prompt<textarea id="negativeText" class="code-area small" placeholder="Optional negative prompt..."></textarea></label>
@@ -221,20 +317,91 @@
     </div>
   </div>
 
+  <div id="collectionModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card small-modal">
+      <button class="modal-close" data-close="collectionModal">×</button>
+      <span class="eyebrow">PROJECTS</span><h2 id="collectionModalTitle">New collection</h2>
+      <form id="collectionForm">
+        <input id="collectionId" type="hidden">
+        <label>Collection name<input id="collectionName" required placeholder="e.g. YouTube Animation"></label>
+        <label>Description (optional)<textarea id="collectionDesc" class="small" placeholder="What is this collection for?"></textarea></label>
+        <label>Color & Theme<select id="collectionColor">
+          <option value="purple">🟣 Purple</option>
+          <option value="blue">🔵 Blue</option>
+          <option value="orange">🟠 Orange</option>
+          <option value="green">🟢 Green</option>
+          <option value="red">🔴 Red</option>
+        </select></label>
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" data-close="collectionModal">Cancel</button>
+          <button class="primary-btn" type="submit">Save collection</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="versionModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card large">
+      <button class="modal-close" data-close="versionModal">×</button>
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">TIMELINE</span>
+          <h2>Prompt Version History</h2>
+          <p class="muted" id="versionModalSubtitle">Review past revisions and safely compare or restore changes.</p>
+        </div>
+      </div>
+
+      <div class="version-layout">
+        <div class="version-list-pane">
+          <div id="versionTimeline"></div>
+        </div>
+        <div class="version-detail-pane">
+          <div id="versionDetailContent">
+            <div class="empty-state"><div>🕒</div><p>Select a version from the timeline on the left.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:16px">
+        <button type="button" class="secondary-btn" data-close="versionModal">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div id="confirmModal" class="modal hidden">
     <div class="modal-backdrop"></div><div class="modal-card small-modal"><h2 id="confirmTitle">Are you sure?</h2><p id="confirmText" class="muted"></p><div class="modal-actions"><button id="confirmCancel" class="secondary-btn">Cancel</button><button id="confirmOk" class="danger-btn">Confirm</button></div></div>
   </div>
 
   <script>
-    if ("serviceWorker" in navigator && location.protocol === "https:") {
-      window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(err => console.warn("PWA service worker registration failed:", err)));
+    const isLocalhost = Boolean(
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '[::1]' ||
+      window.location.hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/)
+    );
+    if ("serviceWorker" in navigator && (window.location.protocol === "https:" || isLocalhost)) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js")
+          .then(reg => {
+            window.__swRegistration = reg;
+            console.log("PromptVault PWA service worker registered:", reg.scope);
+            // Notify UI if registration updated
+            reg.addEventListener("updatefound", () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener("statechange", () => {
+                  if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                    window.dispatchEvent(new CustomEvent("pwa-update-available"));
+                  }
+                });
+              }
+            });
+          })
+          .catch(err => console.warn("PWA service worker registration failed:", err));
+      });
     }
   </script>
   <script type="module" src="./app.js"></script>
-  <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
-  }
-  </script>
 </body>
 </html>

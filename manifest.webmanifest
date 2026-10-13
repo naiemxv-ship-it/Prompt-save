@@ -1,15 +1,54 @@
 {
-  "id": "/",
+  "id": "./index.html",
   "name": "PromptVault — AI Prompt Workspace",
   "short_name": "PromptVault",
-  "description": "Save, organize, and reuse your AI prompts.",
-  "start_url": "./",
+  "description": "Save, organize, and reuse your AI prompts with offline support.",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#111827",
   "theme_color": "#111827",
+  "categories": ["productivity", "utilities"],
   "icons": [
-    { "src": "./icons/promptvault.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/promptvault.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Prompt",
+      "short_name": "New Prompt",
+      "description": "Create a new prompt in PromptVault",
+      "url": "./index.html#new-prompt",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }
